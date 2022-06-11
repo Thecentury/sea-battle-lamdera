@@ -1,6 +1,5 @@
 module Backend exposing (..)
 
-import Html
 import Lamdera exposing (ClientId, SessionId)
 import Types exposing (..)
 
@@ -9,12 +8,13 @@ type alias Model =
     BackendModel
 
 
+--noinspection ElmUnusedSymbol
 app =
     Lamdera.backend
         { init = init
         , update = update
         , updateFromFrontend = updateFromFrontend
-        , subscriptions = \m -> Sub.none
+        , subscriptions = \_ -> Sub.none
         }
 
 
