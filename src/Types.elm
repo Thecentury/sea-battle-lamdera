@@ -3,6 +3,7 @@ module Types exposing (..)
 import Array exposing (Array)
 import Browser exposing (UrlRequest)
 import Browser.Navigation exposing (Key)
+import Lamdera exposing (ClientId)
 import Url exposing (Url)
 
 
@@ -54,25 +55,49 @@ type alias Field =
 
 type alias FrontendModel =
     { gameId : String
+    , route : Maybe Route
     , ownField : Field
     , enemyField : Field
     }
 
 
-type alias BackendModel =
-    { message : String
+type Player
+    = Player1
+    | Player2
+
+
+type alias BothPlayersConnectedData =
+    { player1 : ClientId
+    , field1 : Field
+    , player2 : ClientId
+    , field2 : Field
     }
+
+
+type BackendModelState
+    = NoPlayersState
+    | Player1Connected ClientId
+    | BothPlayersConnected BothPlayersConnectedData
+
+
+type alias BackendModel =
+    BackendModelState
+
+
+type Route
+    = Player1Route
+    | Player2Route
 
 
 type FrontendMsg
     = UrlClicked UrlRequest
     | UrlChanged Url
     | NoOpFrontendMsg
-    | CellClicked Coord
+    | UserClickedCell Coord
 
 
 type ToBackend
-    = NoOpToBackend
+    = CellClicked Coord
 
 
 type BackendMsg

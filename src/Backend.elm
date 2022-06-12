@@ -8,7 +8,10 @@ type alias Model =
     BackendModel
 
 
+
 --noinspection ElmUnusedSymbol
+
+
 app =
     Lamdera.backend
         { init = init
@@ -20,7 +23,7 @@ app =
 
 init : ( Model, Cmd BackendMsg )
 init =
-    ( { message = "Hello!" }
+    ( NoPlayersState
     , Cmd.none
     )
 
@@ -35,5 +38,5 @@ update msg model =
 updateFromFrontend : SessionId -> ClientId -> ToBackend -> Model -> ( Model, Cmd BackendMsg )
 updateFromFrontend sessionId clientId msg model =
     case msg of
-        NoOpToBackend ->
+        CellClicked _ ->
             ( model, Cmd.none )

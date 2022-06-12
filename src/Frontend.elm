@@ -9,7 +9,8 @@ import Html.Attributes.Extra
 import Html.Events
 import Lamdera
 import Types exposing (..)
-import Url
+import Url exposing (Url)
+import Url.Parser exposing ((</>))
 
 
 type alias Model =
@@ -33,13 +34,22 @@ app =
 
 
 init : Url.Url -> Nav.Key -> ( Model, Cmd FrontendMsg )
-init _ _ =
+init url _ =
     ( { gameId = ""
+      , route = Url.Parser.parse urlDecoder url
       , ownField = Array.initialize fieldSize (always (Array.initialize fieldSize (always Empty)))
       , enemyField = Array.initialize fieldSize (always (Array.initialize fieldSize (always Empty)))
       }
     , Cmd.none
     )
+
+
+urlDecoder : Url.Parser.Parser (Route -> c) c
+urlDecoder =
+    Url.Parser.oneOf
+        [ Url.Parser.top |> Url.Parser.map Player1Route
+        , Url.Parser.s "player2" </> Url.Parser.string |> Url.Parser.map (\_ -> Player2Route)
+        ]
 
 
 update : FrontendMsg -> Model -> ( Model, Cmd FrontendMsg )
@@ -65,7 +75,7 @@ update msg model =
         NoOpFrontendMsg ->
             ( model, Cmd.none )
 
-        CellClicked _ ->
+        UserClickedCell _ ->
             ( model, Cmd.none )
 
 
@@ -86,11 +96,8 @@ renderField field emitClicks =
                 , Attr.style "height" "20px"
                 , Attr.style "padding" "0"
                 , Attr.style "border" "solid black 1px"
-                , if emitClicks then
-                    Html.Events.onClick (CellClicked { x = columnIndex, y = rowIndex })
-
-                  else
-                    Html.Attributes.Extra.empty
+                , Html.Attributes.Extra.attributeIf emitClicks <|
+                    Html.Events.onClick (UserClickedCell { x = columnIndex, y = rowIndex })
                 ]
                 [ Html.text <| cellToString cell ]
 
