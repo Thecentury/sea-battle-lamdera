@@ -8,6 +8,7 @@ import Html.Attributes as Attr
 import Html.Attributes.Extra
 import Html.Events
 import Lamdera
+import String exposing (fromInt)
 import Types exposing (..)
 import Url exposing (Url)
 import Url.Parser exposing ((</>))
@@ -33,23 +34,39 @@ app =
         }
 
 
+
+--{ gameId = ""
+--  , route = Url.Parser.parse urlDecoder url
+--  , ownField = Array.initialize fieldSize (always (Array.initialize fieldSize (always Empty)))
+--  , enemyField = Array.initialize fieldSize (always (Array.initialize fieldSize (always Empty)))
+--  }
+
+
 init : Url.Url -> Nav.Key -> ( Model, Cmd FrontendMsg )
-init url _ =
-    ( { gameId = ""
-      , route = Url.Parser.parse urlDecoder url
-      , ownField = Array.initialize fieldSize (always (Array.initialize fieldSize (always Empty)))
-      , enemyField = Array.initialize fieldSize (always (Array.initialize fieldSize (always Empty)))
-      }
-    , Cmd.none
-    )
+init url key =
+    let
+        route =
+            Url.Parser.parse urlDecoder url
+    in
+    case route of
+        Just (GameRoot gameId) ->
+            ( WaitingForAnotherPlayer { key = key, gameId = gameId }, Lamdera.sendToBackend (ConnectToGame gameId) )
+
+        _ ->
+            ( Initial { key = key }, Cmd.none )
 
 
 urlDecoder : Url.Parser.Parser (Route -> c) c
 urlDecoder =
     Url.Parser.oneOf
-        [ Url.Parser.top |> Url.Parser.map Player1Route
-        , Url.Parser.s "player2" </> Url.Parser.string |> Url.Parser.map (\_ -> Player2Route)
+        [ Url.Parser.top |> Url.Parser.map Root
+        , Url.Parser.int |> Url.Parser.map GameRoot
         ]
+
+
+urlEncoder : GameId -> String
+urlEncoder gameId =
+    "/" ++ fromInt gameId
 
 
 update : FrontendMsg -> Model -> ( Model, Cmd FrontendMsg )
@@ -75,18 +92,52 @@ update msg model =
         NoOpFrontendMsg ->
             ( model, Cmd.none )
 
+        CreateNewGameClicked ->
+            ( model, Lamdera.sendToBackend CreateNewGame )
+
         UserClickedCell _ ->
             ( model, Cmd.none )
 
 
 updateFromBackend : ToFrontend -> Model -> ( Model, Cmd FrontendMsg )
 updateFromBackend msg model =
-    case msg of
-        NoOpToFrontend ->
+    case ( msg, model ) of
+        ( NoOpToFrontend, _ ) ->
             ( model, Cmd.none )
 
-        GameIsUnknown ->
+        ( GameIsUnknown _, _ ) ->
             -- todo show an error message
+            ( model, Cmd.none )
+
+        ( GameCreated gameId, Initial d ) ->
+            ( WaitingForAnotherPlayer { key = d.key, gameId = gameId }
+            , Nav.pushUrl d.key (urlEncoder gameId)
+            )
+
+        ( GameCreated _, _ ) ->
+            -- todo log an error
+            ( model, Cmd.none )
+
+        ( UpdateGameState _, Initial _ ) ->
+            -- todo show an error
+            ( model, Cmd.none )
+
+        ( UpdateGameState gameUpdate, WaitingForAnotherPlayer state ) ->
+            let
+                newModel =
+                    Playing
+                        { key = state.key
+                        , gameId = state.gameId
+                        , currentTurn = gameUpdate.turn
+                        , me = gameUpdate.me
+                        , ownField = gameUpdate.ownField
+                        , enemyField = gameUpdate.enemyField
+                        }
+            in
+            ( newModel, Cmd.none )
+
+        ( UpdateGameState _, Playing _ ) ->
+            -- todo handle me
             ( model, Cmd.none )
 
 
@@ -115,8 +166,23 @@ renderField field emitClicks =
         ]
 
 
-view : Model -> Browser.Document FrontendMsg
-view model =
+viewInitialScreen : () -> Browser.Document FrontendMsg
+viewInitialScreen () =
+    { title = ""
+    , body =
+        [ Html.div []
+            [ Html.button
+                [ Html.Events.onClick CreateNewGameClicked
+                ]
+                [ Html.text "Create new game"
+                ]
+            ]
+        ]
+    }
+
+
+viewBothPlayersConnected : FrontendReady -> Browser.Document FrontendMsg
+viewBothPlayersConnected model =
     { title = ""
     , body =
         [ Html.div []
@@ -129,3 +195,16 @@ view model =
             ]
         ]
     }
+
+
+view : Model -> Browser.Document FrontendMsg
+view model =
+    case model of
+        Initial _ ->
+            viewInitialScreen ()
+
+        WaitingForAnotherPlayer _ ->
+            { title = "", body = [] }
+
+        Playing data ->
+            viewBothPlayersConnected data

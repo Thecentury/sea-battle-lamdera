@@ -2,10 +2,24 @@ module Types exposing (..)
 
 import Array exposing (Array)
 import Browser exposing (UrlRequest)
-import Browser.Navigation exposing (Key)
+import Browser.Navigation as Nav exposing (Key)
 import Dict exposing (Dict)
 import Lamdera exposing (ClientId)
 import Url exposing (Url)
+
+
+maybeToList : Maybe a -> List a
+maybeToList m =
+    case m of
+        Just v ->
+            [ v ]
+
+        Nothing ->
+            []
+
+
+
+-------------------------------------------------------------------------------
 
 
 type ShipState
@@ -54,12 +68,30 @@ type alias Field =
     Array (Array Cell)
 
 
-type alias FrontendModel =
-    { gameId : String
-    , route : Maybe Route
+type alias FrontendInitial =
+    { key : Nav.Key }
+
+
+type alias FrontendWaitingForAnotherPlayer =
+    { key : Nav.Key
+    , gameId : GameId
+    }
+
+
+type alias FrontendReady =
+    { key : Nav.Key
+    , gameId : GameId
+    , currentTurn : Player
+    , me : Player
     , ownField : Field
     , enemyField : Field
     }
+
+
+type FrontendModel
+    = Initial FrontendInitial
+    | WaitingForAnotherPlayer FrontendWaitingForAnotherPlayer
+    | Playing FrontendReady
 
 
 type Player
@@ -69,7 +101,8 @@ type Player
 
 type alias PlayerField =
     { playerId : ClientId
-    , field : Field
+    , playerField : Field
+    , enemyField : Field
     }
 
 
@@ -100,14 +133,15 @@ type alias BackendModel =
 
 
 type Route
-    = Player1Route
-    | Player2Route
+    = Root
+    | GameRoot GameId
 
 
 type FrontendMsg
     = UrlClicked UrlRequest
     | UrlChanged Url
     | NoOpFrontendMsg
+    | CreateNewGameClicked
     | UserClickedCell Coord
 
 
@@ -121,7 +155,17 @@ type BackendMsg
     = NoOpBackendMsg
 
 
+type alias UpdatedGameState =
+    { ownField : Field
+    , enemyField : Field
+    , me : Player
+    , turn : Player
+    }
+
+
 type ToFrontend
     = NoOpToFrontend
+    | GameCreated GameId
       -- todo extract into some "GameConnectError"
-    | GameIsUnknown
+    | GameIsUnknown GameId
+    | UpdateGameState UpdatedGameState
