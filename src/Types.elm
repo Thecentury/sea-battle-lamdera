@@ -3,6 +3,7 @@ module Types exposing (..)
 import Array exposing (Array)
 import Browser exposing (UrlRequest)
 import Browser.Navigation exposing (Key)
+import Dict exposing (Dict)
 import Lamdera exposing (ClientId)
 import Url exposing (Url)
 
@@ -66,22 +67,36 @@ type Player
     | Player2
 
 
-type alias BothPlayersConnectedData =
-    { player1 : ClientId
-    , field1 : Field
-    , player2 : ClientId
-    , field2 : Field
+type alias PlayerField =
+    { playerId : ClientId
+    , field : Field
     }
 
 
-type BackendModelState
-    = NoPlayersState
-    | Player1Connected ClientId
+type alias BothPlayersConnectedData =
+    { player1 : PlayerField
+    , player2 : PlayerField
+    , turn : Player
+    }
+
+
+
+-- todo store game started time, last access times
+
+
+type BackendGameState
+    = Player1Connected PlayerField
     | BothPlayersConnected BothPlayersConnectedData
 
 
+type alias GameId =
+    Int
+
+
 type alias BackendModel =
-    BackendModelState
+    { games : Dict GameId BackendGameState
+    , latestGameId : GameId
+    }
 
 
 type Route
@@ -97,7 +112,9 @@ type FrontendMsg
 
 
 type ToBackend
-    = CellClicked Coord
+    = CreateNewGame
+    | ConnectToGame GameId
+    | CellClicked GameId Coord
 
 
 type BackendMsg
@@ -106,3 +123,5 @@ type BackendMsg
 
 type ToFrontend
     = NoOpToFrontend
+      -- todo extract into some "GameConnectError"
+    | GameIsUnknown

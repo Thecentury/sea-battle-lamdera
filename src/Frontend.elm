@@ -85,6 +85,10 @@ updateFromBackend msg model =
         NoOpToFrontend ->
             ( model, Cmd.none )
 
+        GameIsUnknown ->
+            -- todo show an error message
+            ( model, Cmd.none )
+
 
 renderField : Field -> Bool -> Html.Html FrontendMsg
 renderField field emitClicks =
