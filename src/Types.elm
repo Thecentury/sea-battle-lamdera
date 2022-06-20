@@ -4,7 +4,7 @@ import Array exposing (Array)
 import Browser exposing (UrlRequest)
 import Browser.Navigation as Nav exposing (Key)
 import Dict exposing (Dict)
-import Lamdera exposing (ClientId)
+import Lamdera exposing (ClientId, SessionId)
 import Url exposing (Url)
 
 
@@ -131,7 +131,8 @@ type Player
 
 
 type alias PlayerField =
-    { playerId : ClientId
+    { sessionId : SessionId
+    , clientId : ClientId
     , playerField : Field
     , enemyField : Field
     }

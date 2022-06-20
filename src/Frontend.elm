@@ -34,14 +34,6 @@ app =
         }
 
 
-
---{ gameId = ""
---  , route = Url.Parser.parse urlDecoder url
---  , ownField = Array.initialize fieldSize (always (Array.initialize fieldSize (always Empty)))
---  , enemyField = Array.initialize fieldSize (always (Array.initialize fieldSize (always Empty)))
---  }
-
-
 init : Url.Url -> Nav.Key -> ( Model, Cmd FrontendMsg )
 init url key =
     let
@@ -50,7 +42,9 @@ init url key =
     in
     case route of
         Just (GameRoot gameId) ->
-            ( WaitingForAnotherPlayer { key = key, gameId = gameId }, Lamdera.sendToBackend (ConnectToGame gameId) )
+            ( WaitingForAnotherPlayer { key = key, gameId = gameId }
+            , Lamdera.sendToBackend (ConnectToGame gameId)
+            )
 
         _ ->
             ( Initial { key = key }, Cmd.none )

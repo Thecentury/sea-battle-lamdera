@@ -128,12 +128,12 @@ createFrontendUpdateForPlayer player data =
             createFrontendGameUpdate Player2 data.turn data.player2.playerField data.player2.enemyField
 
 
-playerFromClientId : ClientId -> BothPlayersConnectedData -> Maybe Player
-playerFromClientId clientId data =
-    if clientId == data.player1.playerId then
+playerFromSessionId : SessionId -> BothPlayersConnectedData -> Maybe Player
+playerFromSessionId sessionId data =
+    if sessionId == data.player1.sessionId then
         Just Player1
 
-    else if clientId == data.player2.playerId then
+    else if sessionId == data.player2.sessionId then
         Just Player2
 
     else
@@ -141,20 +141,21 @@ playerFromClientId clientId data =
 
 
 updateFromFrontend : SessionId -> ClientId -> ToBackend -> Model -> ( Model, Cmd BackendMsg )
-updateFromFrontend _ clientId msg model =
+updateFromFrontend sessionId clientId msg model =
     case msg of
         ConnectToGame gameId ->
             case Dict.get gameId model.games of
                 Just game ->
                     case game of
                         Player1Connected player1Field ->
-                            if player1Field.playerId == clientId then
+                            if player1Field.sessionId == sessionId then
                                 ( model, Cmd.none )
 
                             else
                                 let
                                     player2Field =
-                                        { playerId = clientId
+                                        { sessionId = sessionId
+                                        , clientId = clientId
                                         , playerField = player2InitialField
                                         , enemyField = emptyField
                                         }
@@ -170,20 +171,20 @@ updateFromFrontend _ clientId msg model =
                                 in
                                 ( model2
                                 , Cmd.batch
-                                    [ Lamdera.sendToFrontend player1Field.playerId (UpdateGameState (createFrontendUpdateForPlayer Player1 game2))
-                                    , Lamdera.sendToFrontend player2Field.playerId (UpdateGameState (createFrontendUpdateForPlayer Player2 game2))
+                                    [ Lamdera.sendToFrontend player1Field.clientId (UpdateGameState (createFrontendUpdateForPlayer Player1 game2))
+                                    , Lamdera.sendToFrontend player2Field.clientId (UpdateGameState (createFrontendUpdateForPlayer Player2 game2))
                                     ]
                                 )
 
                         BothPlayersConnected data ->
                             let
                                 maybePlayer =
-                                    playerFromClientId clientId data
+                                    playerFromSessionId clientId data
 
                                 commands =
                                     maybePlayer
                                         |> Maybe.map (\player -> UpdateGameState (createFrontendUpdateForPlayer player data))
-                                        |> Maybe.withDefault (ToFrontendError "Unknown client id")
+                                        |> Maybe.withDefault (ToFrontendError <| "Unknown client id " ++ clientId ++ ", session id " ++ sessionId)
                                         |> List.singleton
                                         |> List.map (Lamdera.sendToFrontend clientId)
                             in
@@ -203,7 +204,8 @@ updateFromFrontend _ clientId msg model =
 
                 game =
                     Player1Connected
-                        { playerId = clientId
+                        { sessionId = sessionId
+                        , clientId = clientId
                         , playerField = player1InitialField
                         , enemyField = emptyField
                         }
