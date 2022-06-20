@@ -149,7 +149,6 @@ updateFromFrontend _ clientId msg model =
                     case game of
                         Player1Connected player1Field ->
                             if player1Field.playerId == clientId then
-                                -- todo if sessionId = player1, do not update the game, just respond with the player data
                                 ( model, Cmd.none )
 
                             else
@@ -183,8 +182,10 @@ updateFromFrontend _ clientId msg model =
 
                                 commands =
                                     maybePlayer
-                                        |> Maybe.map (\player -> Lamdera.sendToFrontend clientId (UpdateGameState (createFrontendUpdateForPlayer player data)))
-                                        |> maybeToList
+                                        |> Maybe.map (\player -> UpdateGameState (createFrontendUpdateForPlayer player data))
+                                        |> Maybe.withDefault (ToFrontendError "Unknown client id")
+                                        |> List.singleton
+                                        |> List.map (Lamdera.sendToFrontend clientId)
                             in
                             ( model, Cmd.batch commands )
 

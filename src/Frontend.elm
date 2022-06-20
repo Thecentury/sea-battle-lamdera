@@ -109,6 +109,10 @@ updateFromBackend msg model =
             -- todo show an error message
             ( model, Cmd.none )
 
+        ( ToFrontendError e, _ ) ->
+            Debug.log ("ToFrontendError " ++ e)
+                ( model, Cmd.none )
+
         ( GameCreated gameId, Initial d ) ->
             ( WaitingForAnotherPlayer { key = d.key, gameId = gameId }
             , Nav.pushUrl d.key (urlEncoder gameId)
@@ -151,6 +155,10 @@ renderField field emitClicks =
                 , Attr.style "height" "20px"
                 , Attr.style "padding" "0"
                 , Attr.style "border" "solid black 1px"
+                , Attr.style "text-align" "center"
+                , Html.Attributes.Extra.attributeMaybe
+                    (\color -> Attr.style "background" color)
+                    (cellToBackground cell)
                 , Html.Attributes.Extra.attributeIf emitClicks <|
                     Html.Events.onClick (UserClickedCell { x = columnIndex, y = rowIndex })
                 ]

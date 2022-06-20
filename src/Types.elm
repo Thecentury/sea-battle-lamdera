@@ -22,24 +22,24 @@ maybeToList m =
 -------------------------------------------------------------------------------
 
 
-type ShipState
+type ShipHealth
     = Alive
     | Wounded
     | Dead
 
 
-type ShipKind
+type ShipSize
     = Size1
     | Size2
     | Size3
     | Size4
-    | Unknown
+    | UnknownSize
 
 
 type Cell
     = Empty
     | EmptyHit
-    | Ship ShipKind ShipState
+    | Ship ShipSize ShipHealth
 
 
 cellToString : Cell -> String
@@ -51,8 +51,39 @@ cellToString cell =
         EmptyHit ->
             "*"
 
-        Ship kind state ->
-            "s"
+        Ship Size1 _ ->
+            "1"
+
+        Ship Size2 _ ->
+            "2"
+
+        Ship Size3 _ ->
+            "3"
+
+        Ship Size4 _ ->
+            "4"
+
+        Ship UnknownSize _ ->
+            "?"
+
+
+cellToBackground : Cell -> Maybe String
+cellToBackground cell =
+    case cell of
+        Empty ->
+            Nothing
+
+        EmptyHit ->
+            Nothing
+
+        Ship _ Alive ->
+            Nothing
+
+        Ship _ Wounded ->
+            Just "#FFB700FF"
+
+        Ship _ Dead ->
+            Just "#ff4e4e"
 
 
 fieldSize : Int
@@ -168,4 +199,5 @@ type ToFrontend
     | GameCreated GameId
       -- todo extract into some "GameConnectError"
     | GameIsUnknown GameId
+    | ToFrontendError String
     | UpdateGameState UpdatedGameState
