@@ -140,6 +140,38 @@ playerFromSessionId sessionId data =
         Nothing
 
 
+handleCellClicked : BothPlayersConnectedData -> Coord -> ( BothPlayersConnectedData, List (Cmd BackendMsg) )
+handleCellClicked data coord =
+    -- todo validate clientId to ensure that the message is sent from a proper player
+    -- todo proper handling of a current player
+    let
+        field =
+            opponentField data.turn data
+
+        updated =
+            getCell coord field
+                |> Maybe.andThen hit
+                |> Maybe.andThen (\cell -> setCell coord cell field)
+    in
+    -- todo handle if killed
+    case updated of
+        Nothing ->
+            ( data, [] )
+
+        Just updatedField ->
+            let
+                updatedData =
+                    withOpponentField data.turn updatedField data
+                        |> withTurn (nextPlayer data.turn)
+
+                commands =
+                    [ Lamdera.sendToFrontend data.player1.clientId (UpdateGameState (createFrontendUpdateForPlayer Player1 updatedData))
+                    , Lamdera.sendToFrontend data.player2.clientId (UpdateGameState (createFrontendUpdateForPlayer Player2 updatedData))
+                    ]
+            in
+            ( updatedData, commands )
+
+
 updateFromFrontend : SessionId -> ClientId -> ToBackend -> Model -> ( Model, Cmd BackendMsg )
 updateFromFrontend sessionId clientId msg model =
     case msg of
@@ -193,9 +225,24 @@ updateFromFrontend sessionId clientId msg model =
                 Nothing ->
                     ( model, Lamdera.sendToFrontend clientId (GameIsUnknown gameId) )
 
-        CellClicked _ _ ->
-            -- todo implement me
-            ( model, Cmd.none )
+        CellClicked gameId coord ->
+            case Dict.get gameId model.games of
+                Just game ->
+                    case game of
+                        Player1Connected _ ->
+                            -- todo reply with error
+                            ( model, Cmd.none )
+
+                        BothPlayersConnected data ->
+                            let
+                                ( data2, commands ) =
+                                    handleCellClicked data coord
+                            in
+                            ( updateGame gameId (BothPlayersConnected data2) model, Cmd.batch commands )
+
+                Nothing ->
+                    -- todo reply with error
+                    ( model, Cmd.none )
 
         CreateNewGame ->
             let

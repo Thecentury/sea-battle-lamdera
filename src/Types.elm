@@ -5,6 +5,7 @@ import Browser exposing (UrlRequest)
 import Browser.Navigation as Nav exposing (Key)
 import Dict exposing (Dict)
 import Lamdera exposing (ClientId, SessionId)
+import Maybe exposing (andThen)
 import Url exposing (Url)
 
 
@@ -33,6 +34,7 @@ type ShipSize
     | Size2
     | Size3
     | Size4
+      -- todo this case can be only for an opponent
     | UnknownSize
 
 
@@ -99,6 +101,97 @@ type alias Field =
     Array (Array Cell)
 
 
+mapField : (Cell -> Cell) -> Field -> Field
+mapField f field =
+    Array.map (Array.map f) field
+
+
+getCell : Coord -> Field -> Maybe Cell
+getCell coord field =
+    Array.get coord.y field
+        |> andThen (Array.get coord.x)
+
+
+setCell : Coord -> Cell -> Field -> Maybe Field
+setCell coord cell field =
+    Array.get coord.y field
+        |> Maybe.map (\row -> Array.set coord.x cell row)
+        |> Maybe.map (\row -> Array.set coord.y row field)
+
+
+hit : Cell -> Maybe Cell
+hit cell =
+    case cell of
+        Empty ->
+            Just EmptyHit
+
+        EmptyHit ->
+            Nothing
+
+        Ship size health ->
+            case health of
+                Alive ->
+                    Just <| Ship size Wounded
+
+                Wounded ->
+                    Nothing
+
+                Dead ->
+                    Nothing
+
+
+cellViewForOpponent : Cell -> Cell
+cellViewForOpponent cell =
+    case cell of
+        Empty ->
+            Empty
+
+        EmptyHit ->
+            EmptyHit
+
+        Ship size health ->
+            case health of
+                Alive ->
+                    Empty
+
+                Wounded ->
+                    Ship UnknownSize Wounded
+
+                Dead ->
+                    Ship size Dead
+
+
+fieldViewForOpponent : Field -> Field
+fieldViewForOpponent field =
+    mapField cellViewForOpponent field
+
+
+opponentField : Player -> BothPlayersConnectedData -> Field
+opponentField player data =
+    case player of
+        Player1 ->
+            data.player2.playerField
+
+        Player2 ->
+            data.player1.playerField
+
+
+withOpponentField : Player -> Field -> BothPlayersConnectedData -> BothPlayersConnectedData
+withOpponentField player field data =
+    case player of
+        Player1 ->
+            { data
+                | player2 = withPlayerField field data.player2
+                , player1 = withEnemyField (fieldViewForOpponent field) data.player1
+            }
+
+        Player2 ->
+            { data
+                | player1 = withPlayerField field data.player1
+                , player2 = withEnemyField (fieldViewForOpponent field) data.player2
+            }
+
+
 type alias FrontendInitial =
     { key : Nav.Key }
 
@@ -130,12 +223,34 @@ type Player
     | Player2
 
 
+nextPlayer : Player -> Player
+nextPlayer player =
+    case player of
+        Player1 ->
+            Player2
+
+        Player2 ->
+            Player1
+
+
 type alias PlayerField =
     { sessionId : SessionId
     , clientId : ClientId
     , playerField : Field
+
+    -- todo do not store enemy field but compute it?
     , enemyField : Field
     }
+
+
+withPlayerField : Field -> PlayerField -> PlayerField
+withPlayerField field playerField =
+    { playerField | playerField = field }
+
+
+withEnemyField : Field -> PlayerField -> PlayerField
+withEnemyField field playerField =
+    { playerField | enemyField = field }
 
 
 type alias BothPlayersConnectedData =
@@ -143,6 +258,11 @@ type alias BothPlayersConnectedData =
     , player2 : PlayerField
     , turn : Player
     }
+
+
+withTurn : Player -> BothPlayersConnectedData -> BothPlayersConnectedData
+withTurn turn data =
+    { data | turn = turn }
 
 
 
