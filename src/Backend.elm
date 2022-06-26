@@ -19,7 +19,7 @@ app =
         { init = init
         , update = update
         , updateFromFrontend = updateFromFrontend
-        , subscriptions = subscriptions
+        , subscriptions = \_ -> Sub.none
         }
 
 
@@ -33,19 +33,8 @@ init =
 update : BackendMsg -> Model -> ( Model, Cmd BackendMsg )
 update msg model =
     case msg of
-        ClientConnected sessionId clientId ->
+        NoOpBackendMsg ->
             ( model, Cmd.none )
-
-        ClientDisconnected sessionId clientId ->
-            ( model, Cmd.none )
-
-
-subscriptions : Model -> Sub BackendMsg
-subscriptions _ =
-    Sub.batch
-        [ Lamdera.onConnect ClientConnected
-        , Lamdera.onDisconnect ClientDisconnected
-        ]
 
 
 updateGame : GameId -> BackendGameState -> BackendModel -> BackendModel

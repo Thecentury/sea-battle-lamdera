@@ -318,8 +318,7 @@ type ToBackend
 
 
 type BackendMsg
-    = ClientConnected SessionId ClientId
-    | ClientDisconnected SessionId ClientId
+    = NoOpBackendMsg
 
 
 type alias UpdatedGameState =
