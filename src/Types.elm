@@ -5,7 +5,9 @@ import Browser exposing (UrlRequest)
 import Browser.Navigation as Nav exposing (Key)
 import Dict exposing (Dict)
 import Lamdera exposing (ClientId, SessionId)
+import List.Extra as List
 import Maybe exposing (andThen)
+import Maybe.Extra as Maybe
 import Url exposing (Url)
 
 
@@ -92,8 +94,15 @@ mapField f field =
     Array.map (Array.map f) field
 
 
-getCell : Coord -> Field -> Maybe Cell
-getCell coord field =
+mapCell : (Cell -> Cell) -> Coord -> Field -> Field
+mapCell f coord field =
+    getCell field coord
+        |> Maybe.andThen (\cell -> setCell coord (f cell) field)
+        |> Maybe.withDefault field
+
+
+getCell : Field -> Coord -> Maybe Cell
+getCell field coord =
     Array.get coord.y field
         |> andThen (Array.get coord.x)
 
@@ -105,8 +114,8 @@ setCell coord cell field =
         |> Maybe.map (\row -> Array.set coord.y row field)
 
 
-hit : Cell -> Maybe Cell
-hit cell =
+hitCell : Cell -> Maybe Cell
+hitCell cell =
     case cell of
         Empty ->
             Just EmptyHit
@@ -124,6 +133,101 @@ hit cell =
 
                 Dead ->
                     Nothing
+
+
+cellIsShip : Cell -> Bool
+cellIsShip cell =
+    case cell of
+        Empty ->
+            False
+
+        EmptyHit ->
+            False
+
+        Ship _ _ ->
+            True
+
+
+extractShip : Cell -> Maybe ( ShipSize, ShipHealth )
+extractShip cell =
+    case cell of
+        Empty ->
+            Nothing
+
+        EmptyHit ->
+            Nothing
+
+        Ship size health ->
+            Just ( size, health )
+
+
+killShip : Cell -> Maybe Cell
+killShip cell =
+    case cell of
+        Empty ->
+            Nothing
+
+        EmptyHit ->
+            Nothing
+
+        Ship size health ->
+            case health of
+                Alive ->
+                    Nothing
+
+                Wounded ->
+                    Just <| Ship size Dead
+
+                Dead ->
+                    Nothing
+
+
+enumerateToSides : Coord -> List (List Coord)
+enumerateToSides center =
+    [ List.range 0 (center.x - 1) |> List.map (\x -> { x = x, y = center.y })
+    , List.range (center.x + 1) (fieldSize - 1) |> List.map (\x -> { x = x, y = center.y })
+    , List.range 0 (center.y - 1) |> List.map (\y -> { x = center.x, y = y })
+    , List.range (center.y + 1) (fieldSize - 1) |> List.map (\y -> { x = center.x, y = y })
+    ]
+        |> List.filter (not << List.isEmpty)
+
+
+detectKilledShips : Coord -> Field -> Field
+detectKilledShips hitCoord field =
+    let
+        otherShipCells =
+            enumerateToSides hitCoord
+                |> List.concatMap (\side -> side |> List.filterMap (getCell field) |> List.takeWhile cellIsShip)
+
+        allShipCells =
+            Maybe.toList (getCell field hitCoord)
+                |> List.append otherShipCells
+
+        shipData =
+            allShipCells |> List.filterMap extractShip
+
+        shipIsKilled =
+            List.all (\( _, health ) -> health == Wounded) shipData
+
+        shipCoordsWithoutHit =
+            enumerateToSides hitCoord
+                |> List.concatMap
+                    (\side ->
+                        side
+                            |> List.filterMap (\coord -> getCell field coord |> Maybe.map (Tuple.pair coord))
+                            |> List.takeWhile (Tuple.second >> cellIsShip)
+                            |> List.map Tuple.first
+                    )
+
+        shipCoords =
+            hitCoord :: shipCoordsWithoutHit
+    in
+    if shipIsKilled then
+        shipCoords
+            |> List.foldl (\coord f -> mapCell (\cell -> killShip cell |> Maybe.withDefault cell) coord f) field
+
+    else
+        field
 
 
 cellViewForOpponent : Cell -> Cell
@@ -234,6 +338,8 @@ nextPlayer player =
 
 type alias PlayerField =
     { sessionId : SessionId
+
+    -- todo store a set of client ids
     , clientId : ClientId
     , playerField : Field
 
@@ -333,5 +439,6 @@ type ToFrontend
     = GameCreated GameId
       -- todo extract into some "GameConnectError"
     | GameIsUnknown GameId
+    | ClickedCellRejected Coord
     | ToFrontendError String
     | UpdateGameState UpdatedGameState

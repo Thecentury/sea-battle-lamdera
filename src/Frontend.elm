@@ -90,6 +90,7 @@ update msg model =
             ( model, Lamdera.sendToBackend CreateNewGame )
 
         UserClickedCell coord ->
+            -- todo lock the UI to not allow user to click on the different cell
             let
                 cmd =
                     case frontendGameId model of
@@ -149,6 +150,13 @@ updateFromBackend msg model =
                         }
             in
             ( newModel, Cmd.none )
+
+        ( ClickedCellRejected _, Playing _ ) ->
+            -- todo unlock the UI, show a notification that the cell cannot be used
+            ( model, Cmd.none )
+
+        ( ClickedCellRejected _, _ ) ->
+            ( model, Cmd.none )
 
 
 renderField : Field -> Bool -> Html.Html FrontendMsg

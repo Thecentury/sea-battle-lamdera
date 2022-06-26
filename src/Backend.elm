@@ -149,19 +149,14 @@ handleCellClicked clientId sessionId data coord =
                         opponentField data.turn data
 
                     updated =
-                        getCell coord field
-                            |> Maybe.andThen hit
+                        getCell field coord
+                            |> Maybe.andThen hitCell
                             |> Maybe.andThen (\cell -> setCell coord cell field)
+                            |> Maybe.map (detectKilledShips coord)
                 in
-                -- todo handle if killed
                 case updated of
                     Nothing ->
-                        ( data
-                          -- todo fix these errors
-                        , [ Lamdera.sendToFrontend data.player1.clientId (ToFrontendError "Invalid cell")
-                          , Lamdera.sendToFrontend data.player2.clientId (ToFrontendError "Invalid cell")
-                          ]
-                        )
+                        ( data, [ Lamdera.sendToFrontend clientId (ClickedCellRejected coord) ] )
 
                     Just updatedField ->
                         let
@@ -177,13 +172,9 @@ handleCellClicked clientId sessionId data coord =
                         ( updatedData, commands )
 
             else
-                ( data
-                , [ Lamdera.sendToFrontend clientId (ToFrontendError "It's not your turn")
-                  ]
-                )
+                ( data, [ Lamdera.sendToFrontend clientId (ToFrontendError "It's not your turn") ] )
 
         Nothing ->
-            -- todo validate clientId to ensure that the message is sent from a proper player
             ( data, [ Lamdera.sendToFrontend clientId (ToFrontendError "You don't belong to this game") ] )
 
 
