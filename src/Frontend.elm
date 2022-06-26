@@ -170,6 +170,7 @@ renderField field emitClicks =
                 , Attr.style "padding" "0"
                 , Attr.style "border" "solid black 1px"
                 , Attr.style "text-align" "center"
+                , Attr.style "vertical-align" "middle"
                 , Html.Attributes.Extra.attributeIf emitClicks <| Attr.style "cursor" "pointer"
                 , Html.Attributes.Extra.attributeMaybe
                     (\color -> Attr.style "background" color)
@@ -240,7 +241,12 @@ view model =
             viewInitialScreen ()
 
         WaitingForAnotherPlayer _ ->
-            { title = "", body = [] }
+            { title = ""
+            , body =
+                [ Html.div []
+                    [ Html.text "Waiting for another player to connect" ]
+                ]
+            }
 
         Playing data ->
             viewBothPlayersConnected data

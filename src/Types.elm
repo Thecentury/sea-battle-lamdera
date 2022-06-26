@@ -39,7 +39,7 @@ cellToString cell =
             " "
 
         EmptyHit ->
-            "*"
+            "·"
 
         Ship Size1 _ ->
             "1"
