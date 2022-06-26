@@ -330,8 +330,7 @@ type alias UpdatedGameState =
 
 
 type ToFrontend
-    = NoOpToFrontend
-    | GameCreated GameId
+    = GameCreated GameId
       -- todo extract into some "GameConnectError"
     | GameIsUnknown GameId
     | ToFrontendError String

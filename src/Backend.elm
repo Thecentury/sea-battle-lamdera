@@ -25,9 +25,7 @@ app =
 
 init : ( Model, Cmd BackendMsg )
 init =
-    ( { latestGameId = 0, games = Dict.empty }
-    , Cmd.none
-    )
+    ( { latestGameId = 0, games = Dict.empty }, Cmd.none )
 
 
 update : BackendMsg -> Model -> ( Model, Cmd BackendMsg )

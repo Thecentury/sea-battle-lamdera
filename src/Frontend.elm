@@ -105,9 +105,6 @@ update msg model =
 updateFromBackend : ToFrontend -> Model -> ( Model, Cmd FrontendMsg )
 updateFromBackend msg model =
     case ( msg, model ) of
-        ( NoOpToFrontend, _ ) ->
-            ( model, Cmd.none )
-
         ( GameIsUnknown _, _ ) ->
             -- todo show an error message
             ( model, Cmd.none )
