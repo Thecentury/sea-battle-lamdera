@@ -9,20 +9,6 @@ import Maybe exposing (andThen)
 import Url exposing (Url)
 
 
-maybeToList : Maybe a -> List a
-maybeToList m =
-    case m of
-        Just v ->
-            [ v ]
-
-        Nothing ->
-            []
-
-
-
--------------------------------------------------------------------------------
-
-
 type ShipHealth
     = Alive
     | Wounded
@@ -218,6 +204,19 @@ type FrontendModel
     | Playing FrontendReady
 
 
+frontendGameId : FrontendModel -> Maybe GameId
+frontendGameId model =
+    case model of
+        Initial _ ->
+            Nothing
+
+        WaitingForAnotherPlayer data ->
+            Just data.gameId
+
+        Playing data ->
+            Just data.gameId
+
+
 type Player
     = Player1
     | Player2
@@ -243,6 +242,11 @@ type alias PlayerField =
     }
 
 
+playerFieldWithClientId : ClientId -> PlayerField -> PlayerField
+playerFieldWithClientId clientId playerField =
+    { playerField | clientId = clientId }
+
+
 withPlayerField : Field -> PlayerField -> PlayerField
 withPlayerField field playerField =
     { playerField | playerField = field }
@@ -263,6 +267,16 @@ type alias BothPlayersConnectedData =
 withTurn : Player -> BothPlayersConnectedData -> BothPlayersConnectedData
 withTurn turn data =
     { data | turn = turn }
+
+
+withClientId : ClientId -> Player -> BothPlayersConnectedData -> BothPlayersConnectedData
+withClientId clientId player data =
+    case player of
+        Player1 ->
+            { data | player1 = playerFieldWithClientId clientId data.player1 }
+
+        Player2 ->
+            { data | player2 = playerFieldWithClientId clientId data.player2 }
 
 
 
@@ -304,7 +318,8 @@ type ToBackend
 
 
 type BackendMsg
-    = NoOpBackendMsg
+    = ClientConnected SessionId ClientId
+    | ClientDisconnected SessionId ClientId
 
 
 type alias UpdatedGameState =

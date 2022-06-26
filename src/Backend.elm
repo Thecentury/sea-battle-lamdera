@@ -19,7 +19,7 @@ app =
         { init = init
         , update = update
         , updateFromFrontend = updateFromFrontend
-        , subscriptions = \_ -> Sub.none
+        , subscriptions = subscriptions
         }
 
 
@@ -33,8 +33,19 @@ init =
 update : BackendMsg -> Model -> ( Model, Cmd BackendMsg )
 update msg model =
     case msg of
-        NoOpBackendMsg ->
+        ClientConnected sessionId clientId ->
             ( model, Cmd.none )
+
+        ClientDisconnected sessionId clientId ->
+            ( model, Cmd.none )
+
+
+subscriptions : Model -> Sub BackendMsg
+subscriptions _ =
+    Sub.batch
+        [ Lamdera.onConnect ClientConnected
+        , Lamdera.onDisconnect ClientDisconnected
+        ]
 
 
 updateGame : GameId -> BackendGameState -> BackendModel -> BackendModel
@@ -140,48 +151,66 @@ playerFromSessionId sessionId data =
         Nothing
 
 
-handleCellClicked : BothPlayersConnectedData -> Coord -> ( BothPlayersConnectedData, List (Cmd BackendMsg) )
-handleCellClicked data coord =
-    -- todo validate clientId to ensure that the message is sent from a proper player
-    -- todo proper handling of a current player
-    let
-        field =
-            opponentField data.turn data
+handleCellClicked : ClientId -> SessionId -> BothPlayersConnectedData -> Coord -> ( BothPlayersConnectedData, List (Cmd BackendMsg) )
+handleCellClicked clientId sessionId data coord =
+    case playerFromSessionId sessionId data of
+        Just player ->
+            if player == data.turn then
+                -- todo proper handling of a current player
+                let
+                    field =
+                        opponentField data.turn data
 
-        updated =
-            getCell coord field
-                |> Maybe.andThen hit
-                |> Maybe.andThen (\cell -> setCell coord cell field)
-    in
-    -- todo handle if killed
-    case updated of
+                    updated =
+                        getCell coord field
+                            |> Maybe.andThen hit
+                            |> Maybe.andThen (\cell -> setCell coord cell field)
+                in
+                -- todo handle if killed
+                case updated of
+                    Nothing ->
+                        ( data
+                          -- todo fix these errors
+                        , [ Lamdera.sendToFrontend data.player1.clientId (ToFrontendError "Invalid cell")
+                          , Lamdera.sendToFrontend data.player2.clientId (ToFrontendError "Invalid cell")
+                          ]
+                        )
+
+                    Just updatedField ->
+                        let
+                            updatedData =
+                                withOpponentField data.turn updatedField data
+                                    |> withTurn (nextPlayer data.turn)
+
+                            commands =
+                                [ Lamdera.sendToFrontend data.player1.clientId (UpdateGameState (createFrontendUpdateForPlayer Player1 updatedData))
+                                , Lamdera.sendToFrontend data.player2.clientId (UpdateGameState (createFrontendUpdateForPlayer Player2 updatedData))
+                                ]
+                        in
+                        ( updatedData, commands )
+
+            else
+                ( data
+                , [ Lamdera.sendToFrontend clientId (ToFrontendError "It's not your turn")
+                  ]
+                )
+
         Nothing ->
-            ( data, [] )
-
-        Just updatedField ->
-            let
-                updatedData =
-                    withOpponentField data.turn updatedField data
-                        |> withTurn (nextPlayer data.turn)
-
-                commands =
-                    [ Lamdera.sendToFrontend data.player1.clientId (UpdateGameState (createFrontendUpdateForPlayer Player1 updatedData))
-                    , Lamdera.sendToFrontend data.player2.clientId (UpdateGameState (createFrontendUpdateForPlayer Player2 updatedData))
-                    ]
-            in
-            ( updatedData, commands )
+            -- todo validate clientId to ensure that the message is sent from a proper player
+            ( data, [ Lamdera.sendToFrontend clientId (ToFrontendError "You don't belong to this game") ] )
 
 
 updateFromFrontend : SessionId -> ClientId -> ToBackend -> Model -> ( Model, Cmd BackendMsg )
 updateFromFrontend sessionId clientId msg model =
-    case msg of
+    case Debug.log ("Backend message, session " ++ sessionId ++ ", client " ++ clientId) msg of
         ConnectToGame gameId ->
             case Dict.get gameId model.games of
                 Just game ->
                     case game of
                         Player1Connected player1Field ->
                             if player1Field.sessionId == sessionId then
-                                ( model, Cmd.none )
+                                -- Just update clientId
+                                ( updateGame gameId (Player1Connected { player1Field | clientId = clientId }) model, Cmd.none )
 
                             else
                                 let
@@ -211,7 +240,7 @@ updateFromFrontend sessionId clientId msg model =
                         BothPlayersConnected data ->
                             let
                                 maybePlayer =
-                                    playerFromSessionId clientId data
+                                    playerFromSessionId sessionId data
 
                                 commands =
                                     maybePlayer
@@ -219,8 +248,13 @@ updateFromFrontend sessionId clientId msg model =
                                         |> Maybe.withDefault (ToFrontendError <| "Unknown client id " ++ clientId ++ ", session id " ++ sessionId)
                                         |> List.singleton
                                         |> List.map (Lamdera.sendToFrontend clientId)
+
+                                model2 =
+                                    maybePlayer
+                                        |> Maybe.map (\player -> updateGame gameId (BothPlayersConnected (withClientId clientId player data)) model)
+                                        |> Maybe.withDefault model
                             in
-                            ( model, Cmd.batch commands )
+                            ( model2, Cmd.batch commands )
 
                 Nothing ->
                     ( model, Lamdera.sendToFrontend clientId (GameIsUnknown gameId) )
@@ -230,19 +264,17 @@ updateFromFrontend sessionId clientId msg model =
                 Just game ->
                     case game of
                         Player1Connected _ ->
-                            -- todo reply with error
-                            ( model, Cmd.none )
+                            ( model, Lamdera.sendToFrontend clientId (ToFrontendError "Game is in Player1Connected state (BothPlayersConnected expected)") )
 
                         BothPlayersConnected data ->
                             let
                                 ( data2, commands ) =
-                                    handleCellClicked data coord
+                                    handleCellClicked clientId sessionId data coord
                             in
-                            ( updateGame gameId (BothPlayersConnected data2) model, Cmd.batch commands )
+                            ( updateGame gameId (BothPlayersConnected data2) model, Debug.log "Commands" (Cmd.batch commands) )
 
                 Nothing ->
-                    -- todo reply with error
-                    ( model, Cmd.none )
+                    ( Debug.log "Game not found" model, Lamdera.sendToFrontend clientId (GameIsUnknown gameId) )
 
         CreateNewGame ->
             let

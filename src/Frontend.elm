@@ -89,8 +89,17 @@ update msg model =
         CreateNewGameClicked ->
             ( model, Lamdera.sendToBackend CreateNewGame )
 
-        UserClickedCell _ ->
-            ( model, Cmd.none )
+        UserClickedCell coord ->
+            let
+                cmd =
+                    case frontendGameId model of
+                        Just gameId ->
+                            Lamdera.sendToBackend (CellClicked gameId coord)
+
+                        Nothing ->
+                            Cmd.none
+            in
+            ( model, cmd )
 
 
 updateFromBackend : ToFrontend -> Model -> ( Model, Cmd FrontendMsg )
@@ -104,8 +113,7 @@ updateFromBackend msg model =
             ( model, Cmd.none )
 
         ( ToFrontendError e, _ ) ->
-            Debug.log ("ToFrontendError " ++ e)
-                ( model, Cmd.none )
+            ( model, Debug.log ("ToFrontendError " ++ e) Cmd.none )
 
         ( GameCreated gameId, Initial d ) ->
             ( WaitingForAnotherPlayer { key = d.key, gameId = gameId }
@@ -117,8 +125,7 @@ updateFromBackend msg model =
             ( model, Cmd.none )
 
         ( UpdateGameState _, Initial _ ) ->
-            -- todo show an error
-            ( model, Cmd.none )
+            ( model, Debug.log "Not expected to receive 'UpdateGameState' in 'Initial' state" Cmd.none )
 
         ( UpdateGameState gameUpdate, WaitingForAnotherPlayer state ) ->
             let
@@ -134,9 +141,17 @@ updateFromBackend msg model =
             in
             ( newModel, Cmd.none )
 
-        ( UpdateGameState _, Playing _ ) ->
-            -- todo handle me
-            ( model, Cmd.none )
+        ( UpdateGameState gameUpdate, Playing state ) ->
+            let
+                newModel =
+                    Playing
+                        { state
+                            | currentTurn = gameUpdate.turn
+                            , ownField = gameUpdate.ownField
+                            , enemyField = gameUpdate.enemyField
+                        }
+            in
+            ( newModel, Cmd.none )
 
 
 renderField : Field -> Bool -> Html.Html FrontendMsg
@@ -150,6 +165,7 @@ renderField field emitClicks =
                 , Attr.style "padding" "0"
                 , Attr.style "border" "solid black 1px"
                 , Attr.style "text-align" "center"
+                , Html.Attributes.Extra.attributeIf emitClicks <| Attr.style "cursor" "pointer"
                 , Html.Attributes.Extra.attributeMaybe
                     (\color -> Attr.style "background" color)
                     (cellToBackground cell)
@@ -185,15 +201,28 @@ viewInitialScreen () =
 
 viewBothPlayersConnected : FrontendReady -> Browser.Document FrontendMsg
 viewBothPlayersConnected model =
+    let
+        ownTurn =
+            model.me == model.currentTurn
+    in
     { title = ""
     , body =
         [ Html.div []
+            [ Html.text
+                (if ownTurn then
+                    "Your turn"
+
+                 else
+                    "Enemy turn"
+                )
+            ]
+        , Html.div []
             [ Html.p [] [ Html.text "Own" ]
             , renderField model.ownField False
             ]
         , Html.div []
             [ Html.p [] [ Html.text "Enemy" ]
-            , renderField model.enemyField True
+            , renderField model.enemyField ownTurn
             ]
         ]
     }
