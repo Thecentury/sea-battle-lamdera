@@ -1,0 +1,29 @@
+{
+  "name": "sea-battle-lamdera",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Thecentury/sea-battle-lamdera.git"
+  },
+  "keywords": [
+    "elm",
+    "game",
+    "lamdera",
+    "sea",
+    "battle"
+  ],
+  "author": "Mikhail Brinchuk",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Thecentury/sea-battle-lamdera/issues"
+  },
+  "homepage": "https://github.com/Thecentury/sea-battle-lamdera#readme",
+  "devDependencies": {
+    "elm-review": "^2.7.2"
+  }
+}
