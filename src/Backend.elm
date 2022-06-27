@@ -1,6 +1,5 @@
 module Backend exposing (..)
 
-import Array
 import Dict
 import FieldGeneration
 import Lamdera exposing (ClientId, SessionId)
@@ -33,9 +32,6 @@ init =
 update : BackendMsg -> Model -> ( Model, Cmd BackendMsg )
 update msg model =
     case msg of
-        NoOpBackendMsg ->
-            ( model, Cmd.none )
-
         Player1FieldGenerated gameId sessionId clientId field ->
             let
                 game =
@@ -51,55 +47,35 @@ update msg model =
             in
             ( nextModel, Lamdera.sendToFrontend clientId (GameCreated gameId) )
 
+        Player2FieldGenerated gameId sessionId clientId player1Field field ->
+            let
+                player2Field =
+                    { sessionId = sessionId
+                    , clientId = clientId
+                    , playerField = field
+                    , enemyField = emptyField
+                    }
+
+                game =
+                    { player1 = player1Field
+                    , player2 = player2Field
+                    , turn = Player1
+                    }
+
+                model2 =
+                    updateGame gameId (BothPlayersConnected game) model
+            in
+            ( model2
+            , Cmd.batch
+                [ Lamdera.sendToFrontend player1Field.clientId (UpdateGameState (createFrontendUpdateForPlayer Player1 game))
+                , Lamdera.sendToFrontend player2Field.clientId (UpdateGameState (createFrontendUpdateForPlayer Player2 game))
+                ]
+            )
+
 
 updateGame : GameId -> BackendGameState -> BackendModel -> BackendModel
 updateGame gameId state model =
     { model | games = Dict.insert gameId state model.games }
-
-
-fieldFromString : String -> Field
-fieldFromString str =
-    let
-        parseCell : Char -> Cell
-        parseCell c =
-            case c of
-                '1' ->
-                    Ship Size1 Alive
-
-                '2' ->
-                    Ship Size2 Alive
-
-                '3' ->
-                    Ship Size3 Alive
-
-                '4' ->
-                    Ship Size4 Alive
-
-                _ ->
-                    Empty
-    in
-    str
-        |> String.lines
-        |> List.filter (\l -> String.length l > 0)
-        |> List.map (String.trim >> String.toList >> List.map parseCell >> Array.fromList)
-        |> Array.fromList
-
-
-player2InitialField : Field
-player2InitialField =
-    fieldFromString
-        """
-        0002000000
-        0002000001
-        0000002200
-        4000000001
-        4000000200
-        4001000200
-        4000000000
-        0033300001
-        0000000000
-        0000033300
-        """
 
 
 createFrontendGameUpdate : Player -> Player -> Field -> Field -> UpdatedGameState
@@ -186,29 +162,7 @@ updateFromFrontend sessionId clientId msg model =
                                 ( updateGame gameId (Player1Connected { player1Field | clientId = clientId }) model, Cmd.none )
 
                             else
-                                let
-                                    player2Field =
-                                        { sessionId = sessionId
-                                        , clientId = clientId
-                                        , playerField = player2InitialField
-                                        , enemyField = emptyField
-                                        }
-
-                                    game2 =
-                                        { player1 = player1Field
-                                        , player2 = player2Field
-                                        , turn = Player1
-                                        }
-
-                                    model2 =
-                                        updateGame gameId (BothPlayersConnected game2) model
-                                in
-                                ( model2
-                                , Cmd.batch
-                                    [ Lamdera.sendToFrontend player1Field.clientId (UpdateGameState (createFrontendUpdateForPlayer Player1 game2))
-                                    , Lamdera.sendToFrontend player2Field.clientId (UpdateGameState (createFrontendUpdateForPlayer Player2 game2))
-                                    ]
-                                )
+                                ( model, Random.generate (Player2FieldGenerated gameId sessionId clientId player1Field) FieldGeneration.fieldGenerator )
 
                         BothPlayersConnected data ->
                             let

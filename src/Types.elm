@@ -238,12 +238,13 @@ detectKilledShips hitCoord field =
                             |> List.map Tuple.first
                     )
 
+        -- todo sometimes not all cells of a ship are marked as dead
         shipCoords =
-            hitCoord :: shipCoordsWithoutHit
+            Debug.log "shipCoords" (hitCoord :: shipCoordsWithoutHit)
     in
     if shipIsKilled then
         shipCoords
-            |> List.foldl (\coord f -> mapCell (\cell -> killShip cell |> Maybe.withDefault cell) coord f) field
+            |> List.foldl (mapCell (\cell -> killShip cell |> Maybe.withDefault cell)) field
 
     else
         field
@@ -443,9 +444,8 @@ type ToBackend
 
 
 type BackendMsg
-    = -- todo delete me
-      NoOpBackendMsg
-    | Player1FieldGenerated GameId SessionId ClientId Field
+    = Player1FieldGenerated GameId SessionId ClientId Field
+    | Player2FieldGenerated GameId SessionId ClientId PlayerField Field
 
 
 type alias UpdatedGameState =
