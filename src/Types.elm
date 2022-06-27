@@ -76,6 +76,19 @@ cellToBackground cell =
             Just "#ff4e4e"
 
 
+cellIsHit : Cell -> Bool
+cellIsHit cell =
+    case cell of
+        Empty ->
+            False
+
+        EmptyHit ->
+            True
+
+        Ship _ _ ->
+            True
+
+
 fieldSize : Int
 fieldSize =
     10
@@ -346,8 +359,8 @@ type Player
     | Player2
 
 
-nextPlayer : Player -> Player
-nextPlayer player =
+opponent : Player -> Player
+opponent player =
     case player of
         Player1 ->
             Player2

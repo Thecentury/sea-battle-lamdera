@@ -114,7 +114,6 @@ handleCellClicked clientId sessionId data coord =
     case playerFromSessionId sessionId data of
         Just player ->
             if player == data.turn then
-                -- todo proper handling of a current player
                 let
                     field =
                         opponentField data.turn data
@@ -131,9 +130,19 @@ handleCellClicked clientId sessionId data coord =
 
                     Just updatedField ->
                         let
+                            updatedCell =
+                                getCell updatedField coord |> Maybe.withDefault Empty
+
+                            nextPlayer =
+                                if cellIsHit updatedCell then
+                                    data.turn
+
+                                else
+                                    opponent data.turn
+
                             updatedData =
                                 withOpponentField data.turn updatedField data
-                                    |> withTurn (nextPlayer data.turn)
+                                    |> withTurn nextPlayer
 
                             commands =
                                 [ Lamdera.sendToFrontend data.player1.clientId (UpdateGameState (createFrontendUpdateForPlayer Player1 updatedData))
