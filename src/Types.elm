@@ -6,8 +6,8 @@ import Browser.Navigation as Nav exposing (Key)
 import Dict exposing (Dict)
 import Lamdera exposing (ClientId, SessionId)
 import List.Extra as List
-import Maybe exposing (andThen)
-import Maybe.Extra as Maybe
+import Maybe as Maybe
+import Maybe.Extra
 import Url exposing (Url)
 
 
@@ -81,12 +81,22 @@ fieldSize =
     10
 
 
+maxFieldCoord : Int
+maxFieldCoord =
+    fieldSize - 1
+
+
 type alias Coord =
     { x : Int, y : Int }
 
 
 type alias Field =
     Array (Array Cell)
+
+
+emptyField : Field
+emptyField =
+    Array.initialize fieldSize (always (Array.initialize fieldSize (always Empty)))
 
 
 mapField : (Cell -> Cell) -> Field -> Field
@@ -104,14 +114,23 @@ mapCell f coord field =
 getCell : Field -> Coord -> Maybe Cell
 getCell field coord =
     Array.get coord.y field
-        |> andThen (Array.get coord.x)
+        |> Maybe.andThen (Array.get coord.x)
+
+
+maybeSet : Int -> a -> Array a -> Maybe (Array a)
+maybeSet index value array =
+    if 0 <= index && index < Array.length array then
+        Just (Array.set index value array)
+
+    else
+        Nothing
 
 
 setCell : Coord -> Cell -> Field -> Maybe Field
 setCell coord cell field =
     Array.get coord.y field
-        |> Maybe.map (\row -> Array.set coord.x cell row)
-        |> Maybe.map (\row -> Array.set coord.y row field)
+        |> Maybe.andThen (\row -> maybeSet coord.x cell row)
+        |> Maybe.andThen (\row -> maybeSet coord.y row field)
 
 
 hitCell : Cell -> Maybe Cell
@@ -200,7 +219,7 @@ detectKilledShips hitCoord field =
                 |> List.concatMap (\side -> side |> List.filterMap (getCell field) |> List.takeWhile cellIsShip)
 
         allShipCells =
-            Maybe.toList (getCell field hitCoord)
+            Maybe.Extra.toList (getCell field hitCoord)
                 |> List.append otherShipCells
 
         shipData =
@@ -424,7 +443,9 @@ type ToBackend
 
 
 type BackendMsg
-    = NoOpBackendMsg
+    = -- todo delete me
+      NoOpBackendMsg
+    | Player1FieldGenerated GameId SessionId ClientId Field
 
 
 type alias UpdatedGameState =

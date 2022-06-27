@@ -2,7 +2,9 @@ module Backend exposing (..)
 
 import Array
 import Dict
+import FieldGeneration
 import Lamdera exposing (ClientId, SessionId)
+import Random
 import Types exposing (..)
 
 
@@ -33,6 +35,21 @@ update msg model =
     case msg of
         NoOpBackendMsg ->
             ( model, Cmd.none )
+
+        Player1FieldGenerated gameId sessionId clientId field ->
+            let
+                game =
+                    Player1Connected
+                        { sessionId = sessionId
+                        , clientId = clientId
+                        , playerField = field
+                        , enemyField = emptyField
+                        }
+
+                nextModel =
+                    updateGame gameId game { model | latestGameId = gameId }
+            in
+            ( nextModel, Lamdera.sendToFrontend clientId (GameCreated gameId) )
 
 
 updateGame : GameId -> BackendGameState -> BackendModel -> BackendModel
@@ -68,23 +85,6 @@ fieldFromString str =
         |> Array.fromList
 
 
-player1InitialField : Field
-player1InitialField =
-    fieldFromString
-        """
-        0100000010
-        0004444000
-        0000000030
-        0100000030
-        0000000030
-        2200000000
-        0000000220
-        0000000000
-        0033302010
-        0000002000
-        """
-
-
 player2InitialField : Field
 player2InitialField =
     fieldFromString
@@ -100,11 +100,6 @@ player2InitialField =
         0000000000
         0000033300
         """
-
-
-emptyField : Field
-emptyField =
-    Array.initialize fieldSize (always (Array.initialize fieldSize (always Empty)))
 
 
 createFrontendGameUpdate : Player -> Player -> Field -> Field -> UpdatedGameState
@@ -259,15 +254,7 @@ updateFromFrontend sessionId clientId msg model =
                 gameId =
                     model.latestGameId + 1
 
-                game =
-                    Player1Connected
-                        { sessionId = sessionId
-                        , clientId = clientId
-                        , playerField = player1InitialField
-                        , enemyField = emptyField
-                        }
-
                 nextModel =
-                    updateGame gameId game { model | latestGameId = gameId }
+                    { model | latestGameId = gameId }
             in
-            ( nextModel, Lamdera.sendToFrontend clientId (GameCreated gameId) )
+            ( nextModel, Random.generate (Player1FieldGenerated gameId sessionId clientId) FieldGeneration.fieldGenerator )
