@@ -2,11 +2,11 @@ module Types exposing (..)
 
 import Array exposing (Array)
 import Browser exposing (UrlRequest)
-import Browser.Navigation as Nav exposing (Key)
+import Browser.Navigation as Nav
 import Dict exposing (Dict)
 import Lamdera exposing (ClientId, SessionId)
 import List.Extra as List
-import Maybe as Maybe
+import Maybe
 import Maybe.Extra
 import Url exposing (Url)
 
@@ -252,10 +252,12 @@ detectKilledShips hitCoord field =
                     )
 
         -- todo sometimes not all cells of a ship are marked as dead
-        shipCoords =
-            Debug.log "shipCoords" (hitCoord :: shipCoordsWithoutHit)
     in
     if shipIsKilled then
+        let
+            shipCoords =
+                Debug.log "shipCoords" (hitCoord :: shipCoordsWithoutHit)
+        in
         shipCoords
             |> List.foldl (mapCell (\cell -> killShip cell |> Maybe.withDefault cell)) field
 

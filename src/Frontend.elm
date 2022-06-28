@@ -1,6 +1,6 @@
 module Frontend exposing (..)
 
-import Array as Array
+import Array
 import Browser exposing (UrlRequest(..))
 import Browser.Navigation as Nav
 import Html
@@ -10,8 +10,8 @@ import Html.Events
 import Lamdera
 import String exposing (fromInt)
 import Types exposing (..)
-import Url exposing (Url)
-import Url.Parser exposing ((</>))
+import Url
+import Url.Parser
 
 
 type alias Model =
@@ -29,7 +29,7 @@ app =
         , onUrlChange = UrlChanged
         , update = update
         , updateFromBackend = updateFromBackend
-        , subscriptions = \m -> Sub.none
+        , subscriptions = \_ -> Sub.none
         , view = view
         }
 
