@@ -252,7 +252,7 @@ updateFromFrontend sessionId clientId msg model =
                             ( updateGame gameId (BothPlayersConnected updatedGame) model, Cmd.batch commands )
 
                 Nothing ->
-                    ( Debug.log "Game not found" model, Lamdera.sendToFrontend clientId (GameIsUnknown gameId) )
+                    ( model, Lamdera.sendToFrontend clientId (GameIsUnknown gameId) )
 
         CreateNewGame ->
             let

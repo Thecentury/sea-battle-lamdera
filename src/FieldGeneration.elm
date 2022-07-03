@@ -3,7 +3,7 @@ module FieldGeneration exposing (fieldGenerator)
 import List.Extra as List
 import Random exposing (Generator, constant)
 import Random.Extra as Random
-import Set as Set exposing (Set)
+import Set exposing (Set)
 import Types exposing (Cell(..), Coord, CoordTuple, Field, ShipHealth(..), ShipSize(..), cellIsShip, coordAnd9Neighbours, coordAsTuple, emptyField, getCell, maxFieldCoord, setCell, whereCoordinates)
 
 
