@@ -134,7 +134,7 @@ handleCellClicked clientId sessionId data coord =
                                 getCell updatedField coord |> Maybe.withDefault Empty
 
                             nextPlayer =
-                                if cellIsHit updatedCell then
+                                if shipIsHit updatedCell then
                                     data.turn
 
                                 else

@@ -76,14 +76,14 @@ cellToBackground cell =
             Just "#ff4e4e"
 
 
-cellIsHit : Cell -> Bool
-cellIsHit cell =
+shipIsHit : Cell -> Bool
+shipIsHit cell =
     case cell of
         Empty ->
             False
 
         EmptyHit ->
-            True
+            False
 
         Ship _ _ ->
             True
