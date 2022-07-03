@@ -3,7 +3,8 @@ module FieldGeneration exposing (fieldGenerator)
 import List.Extra as List
 import Random exposing (Generator, constant)
 import Random.Extra as Random
-import Types exposing (Cell(..), Coord, Field, ShipHealth(..), ShipSize(..), emptyField, getCell, maxFieldCoord, setCell)
+import Set as Set exposing (Set)
+import Types exposing (Cell(..), Coord, CoordTuple, Field, ShipHealth(..), ShipSize(..), cellIsShip, coordAnd9Neighbours, coordAsTuple, emptyField, getCell, maxFieldCoord, setCell, whereCoordinates)
 
 
 type alias NumericalShipSize =
@@ -50,23 +51,27 @@ cellsToPlace shipSize =
     List.initialize (numericalSize shipSize) (always <| cellFromSize shipSize)
 
 
-tryAddCells : List Cell -> Coord -> (Coord -> Coord) -> Field -> Maybe Field
-tryAddCells cells coord nextCoord field =
+tryAddCells : List Cell -> Set CoordTuple -> Coord -> (Coord -> Coord) -> Field -> Maybe Field
+tryAddCells cells shipCoords coord nextCoord field =
     case cells of
         [] ->
             Just field
 
         cell :: rest ->
-            getCell field coord
-                |> Maybe.andThen
-                    (\existingCell ->
-                        if existingCell == Empty then
-                            setCell coord cell field
-                                |> Maybe.andThen (tryAddCells rest (nextCoord coord) nextCoord)
+            if Set.member (coordAsTuple coord) shipCoords then
+                Nothing
 
-                        else
-                            Nothing
-                    )
+            else
+                getCell field coord
+                    |> Maybe.andThen
+                        (\existingCell ->
+                            if existingCell == Empty then
+                                setCell coord cell field
+                                    |> Maybe.andThen (tryAddCells rest shipCoords (nextCoord coord) nextCoord)
+
+                            else
+                                Nothing
+                        )
 
 
 tryPlaceShip : ShipSize -> Field -> Coord -> Orientation -> Maybe Field
@@ -82,9 +87,16 @@ tryPlaceShip size field coord orientation =
 
                 Vertical ->
                     { c | y = c.y + 1 }
+
+        shipCoordinates =
+            field
+                |> whereCoordinates cellIsShip
+                |> List.concatMap coordAnd9Neighbours
+                |> List.map coordAsTuple
+                |> Set.fromList
     in
     -- todo validate that ships are not too close
-    tryAddCells cells coord nextCoord field
+    tryAddCells cells shipCoordinates coord nextCoord field
 
 
 placeShipGenerator : Field -> ShipSize -> Generator Field

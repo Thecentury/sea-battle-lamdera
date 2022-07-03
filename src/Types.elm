@@ -103,6 +103,36 @@ type alias Coord =
     { x : Int, y : Int }
 
 
+coordAnd9Neighbours : Coord -> List Coord
+coordAnd9Neighbours coord =
+    let
+        x =
+            coord.x
+
+        y =
+            coord.y
+    in
+    [ { x = x - 1, y = y - 1 }
+    , { x = x + 0, y = y - 1 }
+    , { x = x + 1, y = y - 1 }
+    , { x = x - 1, y = y + 0 }
+    , { x = x + 0, y = y + 0 }
+    , { x = x + 1, y = y + 0 }
+    , { x = x - 1, y = y + 1 }
+    , { x = x + 0, y = y + 1 }
+    , { x = x + 1, y = y + 1 }
+    ]
+
+
+type alias CoordTuple =
+    ( Int, Int )
+
+
+coordAsTuple : Coord -> CoordTuple
+coordAsTuple coord =
+    ( coord.x, coord.y )
+
+
 type alias Field =
     Array (Array Cell)
 
@@ -110,6 +140,27 @@ type alias Field =
 emptyField : Field
 emptyField =
     Array.initialize fieldSize (always (Array.initialize fieldSize (always Empty)))
+
+
+fieldWithCoordinates : Field -> Array (Array ( Cell, Coord ))
+fieldWithCoordinates field =
+    Array.indexedMap
+        (\y row -> Array.indexedMap (\x cell -> ( cell, { x = x, y = y } )) row)
+        field
+
+
+
+-- todo rename?
+
+
+whereCoordinates : (Cell -> Bool) -> Field -> List Coord
+whereCoordinates predicate field =
+    field
+        |> fieldWithCoordinates
+        |> Array.toList
+        |> List.concatMap Array.toList
+        |> List.filter (predicate << Tuple.first)
+        |> List.map Tuple.second
 
 
 mapField : (Cell -> Cell) -> Field -> Field
@@ -130,8 +181,8 @@ getCell field coord =
         |> Maybe.andThen (Array.get coord.x)
 
 
-maybeSet : Int -> a -> Array a -> Maybe (Array a)
-maybeSet index value array =
+maybeSetCell : Int -> a -> Array a -> Maybe (Array a)
+maybeSetCell index value array =
     if 0 <= index && index < Array.length array then
         Just (Array.set index value array)
 
@@ -142,8 +193,8 @@ maybeSet index value array =
 setCell : Coord -> Cell -> Field -> Maybe Field
 setCell coord cell field =
     Array.get coord.y field
-        |> Maybe.andThen (\row -> maybeSet coord.x cell row)
-        |> Maybe.andThen (\row -> maybeSet coord.y row field)
+        |> Maybe.andThen (\row -> maybeSetCell coord.x cell row)
+        |> Maybe.andThen (\row -> maybeSetCell coord.y row field)
 
 
 hitCell : Cell -> Maybe Cell
