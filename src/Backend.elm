@@ -76,12 +76,29 @@ updateGame gameId state model =
     { model | games = Dict.insert gameId state model.games }
 
 
-createFrontendGameContinuesUpdate : Player -> Next -> Field -> Field -> FrontendGameState
-createFrontendGameContinuesUpdate me next myField opponentField =
+nextToFrontend : Player -> Next Player -> Next FrontendPlayer
+nextToFrontend player next =
+    case next of
+        Turn nextPlayer ->
+            if player == nextPlayer then
+                Turn Me
+
+            else
+                Turn Opponent
+
+        Winner winner ->
+            if player == winner then
+                Winner Me
+
+            else
+                Winner Opponent
+
+
+createFrontendGameUpdate : Player -> Next Player -> Field -> Field -> FrontendGameState
+createFrontendGameUpdate me next myField opponentField =
     { ownField = myField
     , opponentField = opponentField
-    , me = me
-    , next = next
+    , next = nextToFrontend me next
     }
 
 
@@ -89,10 +106,10 @@ createFrontendUpdateForPlayer : Player -> GameInProgressData -> FrontendGameStat
 createFrontendUpdateForPlayer player data =
     case player of
         Player1 ->
-            createFrontendGameContinuesUpdate Player1 data.next data.player1.field (fieldViewForOpponent data.player2.field)
+            createFrontendGameUpdate Player1 data.next data.player1.field (fieldViewForOpponent data.player2.field)
 
         Player2 ->
-            createFrontendGameContinuesUpdate Player2 data.next data.player2.field (fieldViewForOpponent data.player1.field)
+            createFrontendGameUpdate Player2 data.next data.player2.field (fieldViewForOpponent data.player1.field)
 
 
 playerFromSessionId : SessionId -> GameInProgressData -> Maybe Player

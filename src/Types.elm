@@ -392,8 +392,7 @@ type alias FrontendWaitingForAnotherPlayer =
 type alias FrontendReady =
     { key : Nav.Key
     , gameId : GameId
-    , currentTurn : Next
-    , me : Player
+    , currentTurn : Next FrontendPlayer
     , ownField : Field
     , opponentField : Field
     }
@@ -455,7 +454,7 @@ withPlayerField field playerField =
 type alias GameInProgressData =
     { player1 : PlayerField
     , player2 : PlayerField
-    , next : Next
+    , next : Next Player
     }
 
 
@@ -524,18 +523,20 @@ type BackendMsg
     | Player2FieldGenerated GameId SessionId ClientId PlayerField Field
 
 
-type Next
-    = Turn Player
-    | Winner Player
+type FrontendPlayer
+    = Me
+    | Opponent
+
+
+type Next p
+    = Turn p
+    | Winner p
 
 
 type alias FrontendGameState =
     { ownField : Field
     , opponentField : Field
-
-    -- todo this is not needed. Instead, frontend player should be "me" or "opponent"
-    , me : Player
-    , next : Next
+    , next : Next FrontendPlayer
 
     -- todo last player move & opponent move?
     }
