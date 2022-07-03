@@ -162,6 +162,13 @@ whereCoordinates predicate field =
         |> List.map Tuple.second
 
 
+flattenField : Field -> List Cell
+flattenField field =
+    field
+        |> Array.toList
+        |> List.concatMap Array.toList
+
+
 mapField : (Cell -> Cell) -> Field -> Field
 mapField f field =
     Array.map (Array.map f) field
@@ -247,6 +254,14 @@ extractShip cell =
 
         Ship size health ->
             Just ( size, health )
+
+
+allShipsAreKilled : Field -> Bool
+allShipsAreKilled field =
+    field
+        |> flattenField
+        |> List.filterMap extractShip
+        |> List.all (\( _, health ) -> health == Dead)
 
 
 killShip : Cell -> Maybe Cell
@@ -344,8 +359,8 @@ fieldViewForOpponent field =
     mapField cellViewForOpponent field
 
 
-opponentField : Player -> BothPlayersConnectedData -> Field
-opponentField player data =
+getOpponentField : Player -> GameInProgressData -> Field
+getOpponentField player data =
     case player of
         Player1 ->
             data.player2.field
@@ -354,7 +369,7 @@ opponentField player data =
             data.player1.field
 
 
-updateOpponentField : Player -> Field -> BothPlayersConnectedData -> BothPlayersConnectedData
+updateOpponentField : Player -> Field -> GameInProgressData -> GameInProgressData
 updateOpponentField player playerField data =
     case player of
         Player1 ->
@@ -377,7 +392,7 @@ type alias FrontendWaitingForAnotherPlayer =
 type alias FrontendReady =
     { key : Nav.Key
     , gameId : GameId
-    , currentTurn : Player
+    , currentTurn : Next
     , me : Player
     , ownField : Field
     , opponentField : Field
@@ -437,19 +452,26 @@ withPlayerField field playerField =
     { playerField | field = field }
 
 
-type alias BothPlayersConnectedData =
+type alias GameInProgressData =
     { player1 : PlayerField
     , player2 : PlayerField
-    , turn : Player
+    , next : Next
     }
 
 
-withTurn : Player -> BothPlayersConnectedData -> BothPlayersConnectedData
+type alias GameFinishedData =
+    { player1 : PlayerField
+    , player2 : PlayerField
+    , winner : Player
+    }
+
+
+withTurn : Player -> GameInProgressData -> GameInProgressData
 withTurn turn data =
-    { data | turn = turn }
+    { data | next = Turn turn }
 
 
-withClientId : ClientId -> Player -> BothPlayersConnectedData -> BothPlayersConnectedData
+withClientId : ClientId -> Player -> GameInProgressData -> GameInProgressData
 withClientId clientId player data =
     case player of
         Player1 ->
@@ -465,7 +487,7 @@ withClientId clientId player data =
 
 type BackendGameState
     = Player1Connected PlayerField
-    | BothPlayersConnected BothPlayersConnectedData
+    | BothPlayersConnected GameInProgressData
 
 
 type alias GameId =
@@ -502,11 +524,20 @@ type BackendMsg
     | Player2FieldGenerated GameId SessionId ClientId PlayerField Field
 
 
-type alias UpdatedGameState =
+type Next
+    = Turn Player
+    | Winner Player
+
+
+type alias FrontendGameState =
     { ownField : Field
     , opponentField : Field
+
+    -- todo this is not needed. Instead, frontend player should be "me" or "opponent"
     , me : Player
-    , turn : Player
+    , next : Next
+
+    -- todo last player move & opponent move?
     }
 
 
@@ -516,4 +547,4 @@ type ToFrontend
     | GameIsUnknown GameId
     | ClickedCellRejected Coord
     | ToFrontendError String
-    | UpdateGameState UpdatedGameState
+    | UpdateGameState FrontendGameState

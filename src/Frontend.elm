@@ -131,7 +131,7 @@ updateFromBackend msg model =
                     Playing
                         { key = state.key
                         , gameId = state.gameId
-                        , currentTurn = gameUpdate.turn
+                        , currentTurn = gameUpdate.next
                         , me = gameUpdate.me
                         , ownField = gameUpdate.ownField
                         , opponentField = gameUpdate.opponentField
@@ -144,7 +144,7 @@ updateFromBackend msg model =
                 newModel =
                     Playing
                         { state
-                            | currentTurn = gameUpdate.turn
+                            | currentTurn = gameUpdate.next
                             , ownField = gameUpdate.ownField
                             , opponentField = gameUpdate.opponentField
                         }
@@ -209,13 +209,31 @@ viewBothPlayersConnected : FrontendReady -> Browser.Document FrontendMsg
 viewBothPlayersConnected model =
     let
         ownTurn =
-            model.me == model.currentTurn
+            Turn model.me == model.currentTurn
+
+        -- todo new game button
+        youWon =
+            Winner model.me == model.currentTurn
+
+        youLost =
+            case model.currentTurn of
+                Winner p ->
+                    p /= model.me
+
+                _ ->
+                    False
     in
     { title = ""
     , body =
         [ Html.div []
             [ Html.text
-                (if ownTurn then
+                (if youWon then
+                    "You won!"
+
+                 else if youLost then
+                    "You lost!"
+
+                 else if ownTurn then
                     "Your turn"
 
                  else

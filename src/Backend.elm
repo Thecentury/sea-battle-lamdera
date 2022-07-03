@@ -57,7 +57,7 @@ update msg model =
                 game =
                     { player1 = player1Field
                     , player2 = player2Field
-                    , turn = Player1
+                    , next = Turn Player1
                     }
 
                 model2 =
@@ -76,26 +76,26 @@ updateGame gameId state model =
     { model | games = Dict.insert gameId state model.games }
 
 
-createFrontendGameUpdate : Player -> Player -> Field -> Field -> UpdatedGameState
-createFrontendGameUpdate me turn myField opponentField =
+createFrontendGameContinuesUpdate : Player -> Next -> Field -> Field -> FrontendGameState
+createFrontendGameContinuesUpdate me next myField opponentField =
     { ownField = myField
     , opponentField = opponentField
     , me = me
-    , turn = turn
+    , next = next
     }
 
 
-createFrontendUpdateForPlayer : Player -> BothPlayersConnectedData -> UpdatedGameState
+createFrontendUpdateForPlayer : Player -> GameInProgressData -> FrontendGameState
 createFrontendUpdateForPlayer player data =
     case player of
         Player1 ->
-            createFrontendGameUpdate Player1 data.turn data.player1.field (fieldViewForOpponent data.player2.field)
+            createFrontendGameContinuesUpdate Player1 data.next data.player1.field (fieldViewForOpponent data.player2.field)
 
         Player2 ->
-            createFrontendGameUpdate Player2 data.turn data.player2.field (fieldViewForOpponent data.player1.field)
+            createFrontendGameContinuesUpdate Player2 data.next data.player2.field (fieldViewForOpponent data.player1.field)
 
 
-playerFromSessionId : SessionId -> BothPlayersConnectedData -> Maybe Player
+playerFromSessionId : SessionId -> GameInProgressData -> Maybe Player
 playerFromSessionId sessionId data =
     if sessionId == data.player1.sessionId then
         Just Player1
@@ -107,50 +107,77 @@ playerFromSessionId sessionId data =
         Nothing
 
 
-handleCellClicked : ClientId -> SessionId -> BothPlayersConnectedData -> Coord -> ( BothPlayersConnectedData, List (Cmd BackendMsg) )
+handleCellClicked : ClientId -> SessionId -> GameInProgressData -> Coord -> ( GameInProgressData, List (Cmd BackendMsg) )
 handleCellClicked clientId sessionId data coord =
     case playerFromSessionId sessionId data of
         Just player ->
-            if player == data.turn then
-                let
-                    opponentField_ =
-                        opponentField data.turn data
-
-                    mUpdatedOpponentField =
-                        getCell opponentField_ coord
-                            |> Maybe.andThen hitCell
-                            |> Maybe.andThen (\cell -> setCell coord cell opponentField_)
-                            |> Maybe.map (detectKilledShips coord)
-                in
-                case mUpdatedOpponentField of
-                    Nothing ->
-                        ( data, [ Lamdera.sendToFrontend clientId (ClickedCellRejected coord) ] )
-
-                    Just updatedOpponentField ->
+            case data.next of
+                Turn currentTurn ->
+                    if player == currentTurn then
                         let
-                            updatedCell =
-                                getCellOrEmpty updatedOpponentField coord
+                            opponentField =
+                                getOpponentField currentTurn data
 
-                            nextPlayer =
-                                if shipIsHit updatedCell then
-                                    data.turn
+                            mUpdatedOpponentField =
+                                getCell opponentField coord
+                                    |> Maybe.andThen hitCell
+                                    |> Maybe.andThen (\cell -> setCell coord cell opponentField)
+                                    |> Maybe.map (detectKilledShips coord)
+                        in
+                        case mUpdatedOpponentField of
+                            Nothing ->
+                                ( data, [ Lamdera.sendToFrontend clientId (ClickedCellRejected coord) ] )
+
+                            Just updatedOpponentField ->
+                                let
+                                    playerWon =
+                                        allShipsAreKilled updatedOpponentField
+                                in
+                                if playerWon then
+                                    let
+                                        updatedData =
+                                            updateOpponentField currentTurn updatedOpponentField data
+
+                                        commands =
+                                            [ Lamdera.sendToFrontend data.player1.clientId (UpdateGameState (createFrontendUpdateForPlayer Player1 updatedData))
+                                            , Lamdera.sendToFrontend data.player2.clientId (UpdateGameState (createFrontendUpdateForPlayer Player2 updatedData))
+                                            ]
+                                    in
+                                    ( { player1 = updatedData.player1
+                                      , player2 = updatedData.player2
+                                      , next = Winner player
+                                      }
+                                    , commands
+                                    )
 
                                 else
-                                    opponent data.turn
+                                    let
+                                        updatedCell =
+                                            getCellOrEmpty updatedOpponentField coord
 
-                            updatedData =
-                                updateOpponentField data.turn updatedOpponentField data
-                                    |> withTurn nextPlayer
+                                        nextPlayer =
+                                            if shipIsHit updatedCell then
+                                                currentTurn
 
-                            commands =
-                                [ Lamdera.sendToFrontend data.player1.clientId (UpdateGameState (createFrontendUpdateForPlayer Player1 updatedData))
-                                , Lamdera.sendToFrontend data.player2.clientId (UpdateGameState (createFrontendUpdateForPlayer Player2 updatedData))
-                                ]
-                        in
-                        ( updatedData, commands )
+                                            else
+                                                opponent currentTurn
 
-            else
-                ( data, [ Lamdera.sendToFrontend clientId (ToFrontendError "It's not your turn") ] )
+                                        updatedData =
+                                            updateOpponentField currentTurn updatedOpponentField data
+                                                |> withTurn nextPlayer
+
+                                        commands =
+                                            [ Lamdera.sendToFrontend data.player1.clientId (UpdateGameState (createFrontendUpdateForPlayer Player1 updatedData))
+                                            , Lamdera.sendToFrontend data.player2.clientId (UpdateGameState (createFrontendUpdateForPlayer Player2 updatedData))
+                                            ]
+                                    in
+                                    ( updatedData, commands )
+
+                    else
+                        ( data, [ Lamdera.sendToFrontend clientId (ToFrontendError "It's not your turn") ] )
+
+                Winner _ ->
+                    ( data, [ Lamdera.sendToFrontend clientId (ToFrontendError "Game is over") ] )
 
         Nothing ->
             ( data, [ Lamdera.sendToFrontend clientId (ToFrontendError "You don't belong to this game") ] )
@@ -202,10 +229,10 @@ updateFromFrontend sessionId clientId msg model =
 
                         BothPlayersConnected data ->
                             let
-                                ( data2, commands ) =
+                                ( updatedGame, commands ) =
                                     handleCellClicked clientId sessionId data coord
                             in
-                            ( updateGame gameId (BothPlayersConnected data2) model, Cmd.batch commands )
+                            ( updateGame gameId (BothPlayersConnected updatedGame) model, Cmd.batch commands )
 
                 Nothing ->
                     ( Debug.log "Game not found" model, Lamdera.sendToFrontend clientId (GameIsUnknown gameId) )
