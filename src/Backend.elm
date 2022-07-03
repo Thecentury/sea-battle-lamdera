@@ -38,8 +38,7 @@ update msg model =
                     Player1Connected
                         { sessionId = sessionId
                         , clientId = clientId
-                        , playerField = field
-                        , opponentField = emptyField
+                        , field = field
                         }
 
                 nextModel =
@@ -52,8 +51,7 @@ update msg model =
                 player2Field =
                     { sessionId = sessionId
                     , clientId = clientId
-                    , playerField = field
-                    , opponentField = emptyField
+                    , field = field
                     }
 
                 game =
@@ -79,9 +77,9 @@ updateGame gameId state model =
 
 
 createFrontendGameUpdate : Player -> Player -> Field -> Field -> UpdatedGameState
-createFrontendGameUpdate me turn myField enemyField =
+createFrontendGameUpdate me turn myField opponentField =
     { ownField = myField
-    , opponentField = enemyField
+    , opponentField = opponentField
     , me = me
     , turn = turn
     }
@@ -91,10 +89,10 @@ createFrontendUpdateForPlayer : Player -> BothPlayersConnectedData -> UpdatedGam
 createFrontendUpdateForPlayer player data =
     case player of
         Player1 ->
-            createFrontendGameUpdate Player1 data.turn data.player1.playerField data.player1.opponentField
+            createFrontendGameUpdate Player1 data.turn data.player1.field (fieldViewForOpponent data.player2.field)
 
         Player2 ->
-            createFrontendGameUpdate Player2 data.turn data.player2.playerField data.player2.opponentField
+            createFrontendGameUpdate Player2 data.turn data.player2.field (fieldViewForOpponent data.player1.field)
 
 
 playerFromSessionId : SessionId -> BothPlayersConnectedData -> Maybe Player
@@ -115,23 +113,23 @@ handleCellClicked clientId sessionId data coord =
         Just player ->
             if player == data.turn then
                 let
-                    field =
+                    opponentField_ =
                         opponentField data.turn data
 
-                    updated =
-                        getCell field coord
+                    mUpdatedOpponentField =
+                        getCell opponentField_ coord
                             |> Maybe.andThen hitCell
-                            |> Maybe.andThen (\cell -> setCell coord cell field)
+                            |> Maybe.andThen (\cell -> setCell coord cell opponentField_)
                             |> Maybe.map (detectKilledShips coord)
                 in
-                case updated of
+                case mUpdatedOpponentField of
                     Nothing ->
                         ( data, [ Lamdera.sendToFrontend clientId (ClickedCellRejected coord) ] )
 
-                    Just updatedField ->
+                    Just updatedOpponentField ->
                         let
                             updatedCell =
-                                getCell updatedField coord |> Maybe.withDefault Empty
+                                getCellOrEmpty updatedOpponentField coord
 
                             nextPlayer =
                                 if shipIsHit updatedCell then
@@ -141,7 +139,7 @@ handleCellClicked clientId sessionId data coord =
                                     opponent data.turn
 
                             updatedData =
-                                updateOpponentField data.turn updatedField data
+                                updateOpponentField data.turn updatedOpponentField data
                                     |> withTurn nextPlayer
 
                             commands =

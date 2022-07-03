@@ -95,7 +95,6 @@ tryPlaceShip size field coord orientation =
                 |> List.map coordAsTuple
                 |> Set.fromList
     in
-    -- todo validate that ships are not too close
     tryAddCells cells shipCoordinates coord nextCoord field
 
 

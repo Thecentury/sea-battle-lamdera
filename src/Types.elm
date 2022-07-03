@@ -348,26 +348,20 @@ opponentField : Player -> BothPlayersConnectedData -> Field
 opponentField player data =
     case player of
         Player1 ->
-            data.player2.playerField
+            data.player2.field
 
         Player2 ->
-            data.player1.playerField
+            data.player1.field
 
 
 updateOpponentField : Player -> Field -> BothPlayersConnectedData -> BothPlayersConnectedData
 updateOpponentField player playerField data =
     case player of
         Player1 ->
-            { data
-                | player2 = withPlayerField playerField data.player2
-                , player1 = withOpponentField (fieldViewForOpponent playerField) data.player1
-            }
+            { data | player2 = withPlayerField playerField data.player2 }
 
         Player2 ->
-            { data
-                | player1 = withPlayerField playerField data.player1
-                , player2 = withOpponentField (fieldViewForOpponent playerField) data.player2
-            }
+            { data | player1 = withPlayerField playerField data.player1 }
 
 
 type alias FrontendInitial =
@@ -429,10 +423,7 @@ type alias PlayerField =
 
     -- todo store a set of client ids
     , clientId : ClientId
-    , playerField : Field
-
-    -- todo do not store enemy field but compute it?
-    , opponentField : Field
+    , field : Field
     }
 
 
@@ -443,12 +434,7 @@ playerFieldWithClientId clientId playerField =
 
 withPlayerField : Field -> PlayerField -> PlayerField
 withPlayerField field playerField =
-    { playerField | playerField = field }
-
-
-withOpponentField : Field -> PlayerField -> PlayerField
-withOpponentField field playerField =
-    { playerField | opponentField = field }
+    { playerField | field = field }
 
 
 type alias BothPlayersConnectedData =
