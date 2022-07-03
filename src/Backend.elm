@@ -39,7 +39,7 @@ update msg model =
                         { sessionId = sessionId
                         , clientId = clientId
                         , playerField = field
-                        , enemyField = emptyField
+                        , opponentField = emptyField
                         }
 
                 nextModel =
@@ -53,7 +53,7 @@ update msg model =
                     { sessionId = sessionId
                     , clientId = clientId
                     , playerField = field
-                    , enemyField = emptyField
+                    , opponentField = emptyField
                     }
 
                 game =
@@ -81,7 +81,7 @@ updateGame gameId state model =
 createFrontendGameUpdate : Player -> Player -> Field -> Field -> UpdatedGameState
 createFrontendGameUpdate me turn myField enemyField =
     { ownField = myField
-    , enemyField = enemyField
+    , opponentField = enemyField
     , me = me
     , turn = turn
     }
@@ -91,10 +91,10 @@ createFrontendUpdateForPlayer : Player -> BothPlayersConnectedData -> UpdatedGam
 createFrontendUpdateForPlayer player data =
     case player of
         Player1 ->
-            createFrontendGameUpdate Player1 data.turn data.player1.playerField data.player1.enemyField
+            createFrontendGameUpdate Player1 data.turn data.player1.playerField data.player1.opponentField
 
         Player2 ->
-            createFrontendGameUpdate Player2 data.turn data.player2.playerField data.player2.enemyField
+            createFrontendGameUpdate Player2 data.turn data.player2.playerField data.player2.opponentField
 
 
 playerFromSessionId : SessionId -> BothPlayersConnectedData -> Maybe Player
@@ -141,7 +141,7 @@ handleCellClicked clientId sessionId data coord =
                                     opponent data.turn
 
                             updatedData =
-                                withOpponentField data.turn updatedField data
+                                updateOpponentField data.turn updatedField data
                                     |> withTurn nextPlayer
 
                             commands =

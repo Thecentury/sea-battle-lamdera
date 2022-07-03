@@ -134,7 +134,7 @@ updateFromBackend msg model =
                         , currentTurn = gameUpdate.turn
                         , me = gameUpdate.me
                         , ownField = gameUpdate.ownField
-                        , enemyField = gameUpdate.enemyField
+                        , opponentField = gameUpdate.opponentField
                         }
             in
             ( newModel, Cmd.none )
@@ -146,7 +146,7 @@ updateFromBackend msg model =
                         { state
                             | currentTurn = gameUpdate.turn
                             , ownField = gameUpdate.ownField
-                            , enemyField = gameUpdate.enemyField
+                            , opponentField = gameUpdate.opponentField
                         }
             in
             ( newModel, Cmd.none )
@@ -228,7 +228,7 @@ viewBothPlayersConnected model =
             ]
         , Html.div []
             [ Html.p [] [ Html.text "Enemy" ]
-            , renderField model.enemyField ownTurn
+            , renderField model.opponentField ownTurn
             ]
         ]
     }

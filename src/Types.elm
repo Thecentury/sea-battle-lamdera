@@ -352,19 +352,19 @@ opponentField player data =
             data.player1.playerField
 
 
-withOpponentField : Player -> Field -> BothPlayersConnectedData -> BothPlayersConnectedData
-withOpponentField player field data =
+updateOpponentField : Player -> Field -> BothPlayersConnectedData -> BothPlayersConnectedData
+updateOpponentField player playerField data =
     case player of
         Player1 ->
             { data
-                | player2 = withPlayerField field data.player2
-                , player1 = withEnemyField (fieldViewForOpponent field) data.player1
+                | player2 = withPlayerField playerField data.player2
+                , player1 = withOpponentField (fieldViewForOpponent playerField) data.player1
             }
 
         Player2 ->
             { data
-                | player1 = withPlayerField field data.player1
-                , player2 = withEnemyField (fieldViewForOpponent field) data.player2
+                | player1 = withPlayerField playerField data.player1
+                , player2 = withOpponentField (fieldViewForOpponent playerField) data.player2
             }
 
 
@@ -384,7 +384,7 @@ type alias FrontendReady =
     , currentTurn : Player
     , me : Player
     , ownField : Field
-    , enemyField : Field
+    , opponentField : Field
     }
 
 
@@ -430,7 +430,7 @@ type alias PlayerField =
     , playerField : Field
 
     -- todo do not store enemy field but compute it?
-    , enemyField : Field
+    , opponentField : Field
     }
 
 
@@ -444,9 +444,9 @@ withPlayerField field playerField =
     { playerField | playerField = field }
 
 
-withEnemyField : Field -> PlayerField -> PlayerField
-withEnemyField field playerField =
-    { playerField | enemyField = field }
+withOpponentField : Field -> PlayerField -> PlayerField
+withOpponentField field playerField =
+    { playerField | opponentField = field }
 
 
 type alias BothPlayersConnectedData =
@@ -516,7 +516,7 @@ type BackendMsg
 
 type alias UpdatedGameState =
     { ownField : Field
-    , enemyField : Field
+    , opponentField : Field
     , me : Player
     , turn : Player
     }
