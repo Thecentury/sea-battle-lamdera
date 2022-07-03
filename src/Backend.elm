@@ -207,7 +207,7 @@ updateFromFrontend sessionId clientId msg model =
                                 ( data2, commands ) =
                                     handleCellClicked clientId sessionId data coord
                             in
-                            ( updateGame gameId (BothPlayersConnected data2) model, Debug.log "Commands" (Cmd.batch commands) )
+                            ( updateGame gameId (BothPlayersConnected data2) model, Cmd.batch commands )
 
                 Nothing ->
                     ( Debug.log "Game not found" model, Lamdera.sendToFrontend clientId (GameIsUnknown gameId) )

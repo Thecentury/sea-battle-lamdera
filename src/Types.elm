@@ -7,7 +7,6 @@ import Dict exposing (Dict)
 import Lamdera exposing (ClientId, SessionId)
 import List.Extra as List
 import Maybe
-import Maybe.Extra
 import Url exposing (Url)
 
 
@@ -181,6 +180,12 @@ getCell field coord =
         |> Maybe.andThen (Array.get coord.x)
 
 
+getCellOrEmpty : Field -> Coord -> Cell
+getCellOrEmpty field coord =
+    getCell field coord
+        |> Maybe.withDefault Empty
+
+
 maybeSetCell : Int -> a -> Array a -> Maybe (Array a)
 maybeSetCell index value array =
     if 0 <= index && index < Array.length array then
@@ -267,10 +272,10 @@ killShip cell =
 
 enumerateToSides : Coord -> List (List Coord)
 enumerateToSides center =
-    [ List.range 0 (center.x - 1) |> List.map (\x -> { x = x, y = center.y })
-    , List.range (center.x + 1) (fieldSize - 1) |> List.map (\x -> { x = x, y = center.y })
-    , List.range 0 (center.y - 1) |> List.map (\y -> { x = center.x, y = y })
-    , List.range (center.y + 1) (fieldSize - 1) |> List.map (\y -> { x = center.x, y = y })
+    [ List.range 0 (center.x - 1) |> List.map (\x -> { x = x, y = center.y }) |> List.reverse
+    , List.range (center.x + 1) maxFieldCoord |> List.map (\x -> { x = x, y = center.y })
+    , List.range 0 (center.y - 1) |> List.map (\y -> { x = center.x, y = y }) |> List.reverse
+    , List.range (center.y + 1) maxFieldCoord |> List.map (\y -> { x = center.x, y = y })
     ]
         |> List.filter (not << List.isEmpty)
 
@@ -280,17 +285,16 @@ detectKilledShips hitCoord field =
     let
         otherShipCells =
             enumerateToSides hitCoord
-                |> List.concatMap (\side -> side |> List.filterMap (getCell field) |> List.takeWhile cellIsShip)
+                |> List.concatMap (\side -> side |> List.map (getCellOrEmpty field) |> List.takeWhile cellIsShip)
 
         allShipCells =
-            Maybe.Extra.toList (getCell field hitCoord)
-                |> List.append otherShipCells
+            getCellOrEmpty field hitCoord :: otherShipCells
 
         shipData =
             allShipCells |> List.filterMap extractShip
 
         shipIsKilled =
-            List.all (\( _, health ) -> health == Wounded) shipData
+            shipData |> List.all (\( _, health ) -> health == Wounded)
 
         shipCoordsWithoutHit =
             enumerateToSides hitCoord
@@ -301,13 +305,11 @@ detectKilledShips hitCoord field =
                             |> List.takeWhile (Tuple.second >> cellIsShip)
                             |> List.map Tuple.first
                     )
-
-        -- todo sometimes not all cells of a ship are marked as dead
     in
     if shipIsKilled then
         let
             shipCoords =
-                Debug.log "shipCoords" (hitCoord :: shipCoordsWithoutHit)
+                hitCoord :: shipCoordsWithoutHit
         in
         shipCoords
             |> List.foldl (mapCell (\cell -> killShip cell |> Maybe.withDefault cell)) field
