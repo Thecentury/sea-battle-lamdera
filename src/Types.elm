@@ -354,9 +354,9 @@ cellViewForOpponent cell =
                     Ship size Dead
 
 
-fieldViewForOpponent : Field -> Field
-fieldViewForOpponent field =
-    mapField cellViewForOpponent field
+fieldViewForOpponent : PlayerField -> PlayerField
+fieldViewForOpponent playerField =
+    { playerField | field = mapField cellViewForOpponent playerField.field }
 
 
 getOpponentField : Player -> GameInProgressData -> Field
@@ -379,6 +379,16 @@ updateOpponentField player playerField data =
             { data | player1 = withPlayerField playerField data.player1 }
 
 
+addPlayerShot : Player -> Coord -> GameInProgressData -> GameInProgressData
+addPlayerShot player coord data =
+    case player of
+        Player1 ->
+            { data | player1 = data.player1 |> addShot coord }
+
+        Player2 ->
+            { data | player2 = data.player2 |> addShot coord }
+
+
 type alias FrontendInitial =
     { key : Nav.Key }
 
@@ -392,9 +402,11 @@ type alias FrontendWaitingForAnotherPlayer =
 type alias FrontendReady =
     { key : Nav.Key
     , gameId : GameId
-    , currentTurn : Next FrontendPlayer
+    , next : Next FrontendPlayer
     , ownField : Field
     , opponentField : Field
+    , lastOwnShot : Maybe Coord
+    , lastOpponentShot : Maybe Coord
     }
 
 
@@ -438,7 +450,13 @@ type alias PlayerField =
     -- todo store a set of client ids
     , clientId : ClientId
     , field : Field
+    , shots : List Coord
     }
+
+
+addShot : Coord -> PlayerField -> PlayerField
+addShot coord playerField =
+    { playerField | shots = List.append playerField.shots [ coord ] }
 
 
 playerFieldWithClientId : ClientId -> PlayerField -> PlayerField
@@ -458,16 +476,9 @@ type alias GameInProgressData =
     }
 
 
-type alias GameFinishedData =
-    { player1 : PlayerField
-    , player2 : PlayerField
-    , winner : Player
-    }
-
-
-withTurn : Player -> GameInProgressData -> GameInProgressData
-withTurn turn data =
-    { data | next = Turn turn }
+withNext : Next Player -> GameInProgressData -> GameInProgressData
+withNext next data =
+    { data | next = next }
 
 
 withClientId : ClientId -> Player -> GameInProgressData -> GameInProgressData
@@ -537,8 +548,8 @@ type alias FrontendGameState =
     { ownField : Field
     , opponentField : Field
     , next : Next FrontendPlayer
-
-    -- todo last player move & opponent move?
+    , lastOwnShot : Maybe Coord
+    , lastOpponentShot : Maybe Coord
     }
 
 

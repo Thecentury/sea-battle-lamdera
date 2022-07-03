@@ -3,6 +3,7 @@ module Backend exposing (..)
 import Dict
 import FieldGeneration
 import Lamdera exposing (ClientId, SessionId)
+import List.Extra as List
 import Random
 import Types exposing (..)
 
@@ -39,6 +40,7 @@ update msg model =
                         { sessionId = sessionId
                         , clientId = clientId
                         , field = field
+                        , shots = []
                         }
 
                 nextModel =
@@ -52,6 +54,7 @@ update msg model =
                     { sessionId = sessionId
                     , clientId = clientId
                     , field = field
+                    , shots = []
                     }
 
                 game =
@@ -94,11 +97,13 @@ nextToFrontend player next =
                 Winner Opponent
 
 
-createFrontendGameUpdate : Player -> Next Player -> Field -> Field -> FrontendGameState
+createFrontendGameUpdate : Player -> Next Player -> PlayerField -> PlayerField -> FrontendGameState
 createFrontendGameUpdate me next myField opponentField =
-    { ownField = myField
-    , opponentField = opponentField
+    { ownField = myField.field
+    , opponentField = opponentField.field
     , next = nextToFrontend me next
+    , lastOwnShot = myField.shots |> List.last
+    , lastOpponentShot = opponentField.shots |> List.last
     }
 
 
@@ -106,10 +111,10 @@ createFrontendUpdateForPlayer : Player -> GameInProgressData -> FrontendGameStat
 createFrontendUpdateForPlayer player data =
     case player of
         Player1 ->
-            createFrontendGameUpdate Player1 data.next data.player1.field (fieldViewForOpponent data.player2.field)
+            createFrontendGameUpdate Player1 data.next data.player1 (fieldViewForOpponent data.player2)
 
         Player2 ->
-            createFrontendGameUpdate Player2 data.next data.player2.field (fieldViewForOpponent data.player1.field)
+            createFrontendGameUpdate Player2 data.next data.player2 (fieldViewForOpponent data.player1)
 
 
 playerFromSessionId : SessionId -> GameInProgressData -> Maybe Player
@@ -149,46 +154,31 @@ handleCellClicked clientId sessionId data coord =
                                 let
                                     playerWon =
                                         allShipsAreKilled updatedOpponentField
+
+                                    updatedCell =
+                                        getCellOrEmpty updatedOpponentField coord
+
+                                    next =
+                                        if playerWon then
+                                            Winner player
+
+                                        else if shipIsHit updatedCell then
+                                            Turn currentTurn
+
+                                        else
+                                            Turn <| opponent currentTurn
+
+                                    updatedData =
+                                        updateOpponentField currentTurn updatedOpponentField data
+                                            |> addPlayerShot player coord
+                                            |> withNext next
+
+                                    commands =
+                                        [ Lamdera.sendToFrontend data.player1.clientId (UpdateGameState (createFrontendUpdateForPlayer Player1 updatedData))
+                                        , Lamdera.sendToFrontend data.player2.clientId (UpdateGameState (createFrontendUpdateForPlayer Player2 updatedData))
+                                        ]
                                 in
-                                if playerWon then
-                                    let
-                                        updatedData =
-                                            updateOpponentField currentTurn updatedOpponentField data
-
-                                        commands =
-                                            [ Lamdera.sendToFrontend data.player1.clientId (UpdateGameState (createFrontendUpdateForPlayer Player1 updatedData))
-                                            , Lamdera.sendToFrontend data.player2.clientId (UpdateGameState (createFrontendUpdateForPlayer Player2 updatedData))
-                                            ]
-                                    in
-                                    ( { player1 = updatedData.player1
-                                      , player2 = updatedData.player2
-                                      , next = Winner player
-                                      }
-                                    , commands
-                                    )
-
-                                else
-                                    let
-                                        updatedCell =
-                                            getCellOrEmpty updatedOpponentField coord
-
-                                        nextPlayer =
-                                            if shipIsHit updatedCell then
-                                                currentTurn
-
-                                            else
-                                                opponent currentTurn
-
-                                        updatedData =
-                                            updateOpponentField currentTurn updatedOpponentField data
-                                                |> withTurn nextPlayer
-
-                                        commands =
-                                            [ Lamdera.sendToFrontend data.player1.clientId (UpdateGameState (createFrontendUpdateForPlayer Player1 updatedData))
-                                            , Lamdera.sendToFrontend data.player2.clientId (UpdateGameState (createFrontendUpdateForPlayer Player2 updatedData))
-                                            ]
-                                    in
-                                    ( updatedData, commands )
+                                ( updatedData, commands )
 
                     else
                         ( data, [ Lamdera.sendToFrontend clientId (ToFrontendError "It's not your turn") ] )

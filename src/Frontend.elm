@@ -131,9 +131,11 @@ updateFromBackend msg model =
                     Playing
                         { key = state.key
                         , gameId = state.gameId
-                        , currentTurn = gameUpdate.next
+                        , next = gameUpdate.next
                         , ownField = gameUpdate.ownField
                         , opponentField = gameUpdate.opponentField
+                        , lastOwnShot = gameUpdate.lastOwnShot
+                        , lastOpponentShot = gameUpdate.lastOpponentShot
                         }
             in
             ( newModel, Cmd.none )
@@ -143,9 +145,11 @@ updateFromBackend msg model =
                 newModel =
                     Playing
                         { state
-                            | currentTurn = gameUpdate.next
+                            | next = gameUpdate.next
                             , ownField = gameUpdate.ownField
                             , opponentField = gameUpdate.opponentField
+                            , lastOwnShot = gameUpdate.lastOwnShot
+                            , lastOpponentShot = gameUpdate.lastOpponentShot
                         }
             in
             ( newModel, Cmd.none )
@@ -158,16 +162,27 @@ updateFromBackend msg model =
             ( model, Cmd.none )
 
 
-renderField : Field -> Bool -> Html.Html FrontendMsg
-renderField field emitClicks =
+renderField : Field -> Maybe Coord -> Bool -> Html.Html FrontendMsg
+renderField field lastShot emitClicks =
     let
         renderCell : Int -> Int -> Cell -> Html.Html FrontendMsg
         renderCell rowIndex columnIndex cell =
+            let
+                isLastShot =
+                    lastShot == Just { x = columnIndex, y = rowIndex }
+
+                borderColor =
+                    if isLastShot then
+                        "red"
+
+                    else
+                        "black"
+            in
             Html.td
                 [ Attr.style "width" "20px"
                 , Attr.style "height" "20px"
                 , Attr.style "padding" "0"
-                , Attr.style "border" "solid black 1px"
+                , Attr.style "border" ("solid 1px " ++ borderColor)
                 , Attr.style "text-align" "center"
                 , Attr.style "vertical-align" "middle"
                 , Html.Attributes.Extra.attributeIf emitClicks <| Attr.style "cursor" "pointer"
@@ -208,14 +223,14 @@ viewBothPlayersConnected : FrontendReady -> Browser.Document FrontendMsg
 viewBothPlayersConnected model =
     let
         ownTurn =
-            model.currentTurn == Turn Me
+            model.next == Turn Me
 
         -- todo new game button
         youWon =
-            model.currentTurn == Winner Me
+            model.next == Winner Me
 
         youLost =
-            model.currentTurn == Winner Opponent
+            model.next == Winner Opponent
     in
     { title = ""
     , body =
@@ -236,11 +251,11 @@ viewBothPlayersConnected model =
             ]
         , Html.div []
             [ Html.p [] [ Html.text "Own" ]
-            , renderField model.ownField False
+            , renderField model.ownField model.lastOpponentShot False
             ]
         , Html.div []
             [ Html.p [] [ Html.text "Enemy" ]
-            , renderField model.opponentField ownTurn
+            , renderField model.opponentField model.lastOwnShot ownTurn
             ]
         ]
     }
